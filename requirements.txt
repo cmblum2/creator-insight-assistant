@@ -1,0 +1,11 @@
+chromadb
+langgraph
+langchain-core
+anthropic
+fastapi
+uvicorn[standard]
+pandas
+faker
+ragas
+datasets
+python-dotenv

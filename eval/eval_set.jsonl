@@ -1,0 +1,5 @@
+{"question":"Which creators mention dry or damaged hair?","must_contain":["hair"]}
+{"question":"Find comments showing intent to buy the product","must_contain":["buy","link","cart"]}
+{"question":"What do people say about heat damage?","must_contain":["heat"]}
+{"question":"Which comments ask about price or restock?","must_contain":["how much","restock","price"]}
+{"question":"Summarize the buy-intent signals in the comments","must_contain":["order","cart","buy"]}
