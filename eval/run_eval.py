@@ -84,7 +84,10 @@ def main():
         f.write(f"- RAGAS: {res}\n")
         if per_q is not None:
             f.write("\n## Per-question scores\n\n")
-            f.write(per_q.to_markdown(index=False))
+            try:
+                f.write(per_q.to_markdown(index=False))
+            except ImportError:      # tabulate not installed
+                f.write("```\n" + per_q.to_string(index=False) + "\n```")
             f.write("\n")
     print(res)
     print(f"retrieval hit rate: {hit_num}/{hit_den} = {hit_rate:.2f}")

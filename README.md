@@ -43,7 +43,39 @@ same local MiniLM embeddings the retriever uses — the whole project needs exac
 It also reports a free, non-LLM **retrieval hit rate** (does at least one retrieved context
 contain an expected term). One eval question is deliberately unanswerable from the data
 ("What is the product's shipping policy?") to verify the model refuses instead of hallucinating.
-<!-- After you run it, paste the scores here and add a "failure case I found and fixed" note. -->
+### Results
+
+| Metric | First run | After fixes |
+|--------|-----------|-------------|
+| Retrieval hit rate | 0.93 | **1.00** |
+| Faithfulness (RAGAS) | 0.70 | **0.83** |
+| Answer relevancy (RAGAS) | 0.72 | **0.83** |
+| Context utilization (RAGAS) | 0.53 | 0.23* |
+
+Full per-question breakdown in [`eval/report.md`](eval/report.md).
+
+### Failure cases the eval caught (and the fixes)
+
+1. **Correct answers judged as hallucinations.** Every "which creators…" question scored
+   *faithfulness 0* despite correct answers. Root cause: creator handles lived only in document
+   *metadata*, so the judge never saw the evidence behind the attribution — and the answer model
+   itself couldn't name creators until the handle was injected into the prompt. Fix: make
+   documents **self-contained** (handle embedded in the text at ingest), so retrieval, the
+   answer prompt, and the eval judge all see identical evidence. Faithfulness 0.70 → 0.83.
+2. **A third of judge calls silently failing.** Claude 5 models reject the deprecated
+   `temperature` param, which ragas sets on its judge internally — poisoning scores with NaNs.
+   Fix: judge pinned to `claude-sonnet-4-5` (the answer model stays on `claude-sonnet-5`).
+3. **Intermittent crash on thinking blocks.** The answer node assumed `content[0]` is text, but
+   Claude 5 models may emit a thinking block first. Fix: extract all text blocks by type.
+4. **Groundedness probe behaves as designed.** The unanswerable question ("shipping policy")
+   scores faithfulness 1.0 with relevancy 0: the model **refuses** instead of inventing an
+   answer. The low relevancy is the expected signature of a correct refusal.
+
+*\* Context utilization dropped because it is a redundancy-punishing precision metric: the
+synthetic corpus returns near-duplicate comments (same template text from different creators),
+which the judge marks individually "unnecessary." It's measuring the corpus, not the pipeline —
+kept here unfiltered rather than cherry-picked. One judge call also returned an unparseable
+verdict (the `nan` row in the report); small-N LLM-judged evals need that kind of footnote.*
 
 ## Architecture
 ```

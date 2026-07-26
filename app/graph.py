@@ -48,7 +48,8 @@ def answer(s):
                 "If the context doesn't answer it, say so — do not invent creators or quotes."),
         messages=[{"role": "user",
                    "content": f"Context:\n{block}\n\nQuestion: {s['question']}"}])
-    return {"answer": msg.content[0].text}
+    # content[0] isn't always text — Claude 5 models may emit a thinking block first
+    return {"answer": "".join(b.text for b in msg.content if b.type == "text")}
 
 
 _g = StateGraph(S)
