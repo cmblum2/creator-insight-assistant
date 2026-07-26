@@ -3,11 +3,20 @@ from typing import TypedDict
 from langgraph.graph import StateGraph, END
 import chromadb
 import anthropic
+from dotenv import load_dotenv
 from app.config import CHROMA_DIR, ANSWER_MODEL
 from app.intent import buy_intent
 
+load_dotenv()   # picks up ANTHROPIC_API_KEY from a local .env (gitignored)
 _col = chromadb.PersistentClient(path=CHROMA_DIR).get_collection("creator_corpus")
-_llm = anthropic.Anthropic()
+_llm = None     # created lazily so the server (and /health) starts without a key
+
+
+def _client():
+    global _llm
+    if _llm is None:
+        _llm = anthropic.Anthropic()
+    return _llm
 
 
 class S(TypedDict):
@@ -26,9 +35,14 @@ def retrieve(s):
 
 
 def answer(s):
-    block = "\n\n".join(f"[{i}] ({c['meta'].get('source')}) {c['text']}"
+    # include the handle from metadata — the raw comment text alone can't tell the model
+    # WHO said it, so "which creators..." questions would be unanswerable
+    def label(c):
+        h = c["meta"].get("handle", "")
+        return f"{c['meta'].get('source')}{', ' + h if h else ''}"
+    block = "\n\n".join(f"[{i}] ({label(c)}) {c['text']}"
                         for i, c in enumerate(s["contexts"]))
-    msg = _llm.messages.create(
+    msg = _client().messages.create(
         model=ANSWER_MODEL, max_tokens=700,
         system=("Answer ONLY from the numbered context. Cite sources like [0],[2]. "
                 "If the context doesn't answer it, say so — do not invent creators or quotes."),

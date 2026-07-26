@@ -30,6 +30,10 @@
         body: JSON.stringify({ question, intent_only: document.getElementById('intent').checked })
       });
       const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('answer').textContent = 'error: ' + (data.detail || res.status);
+        return;
+      }
       document.getElementById('answer').textContent = data.answer;
       document.getElementById('sources').textContent =
         'sources: ' + data.sources.map(s => s.handle || s.source).join(', ');

@@ -1,5 +1,15 @@
 {"question":"Which creators mention dry or damaged hair?","must_contain":["hair"]}
-{"question":"Find comments showing intent to buy the product","must_contain":["buy","link","cart"]}
+{"question":"Find comments showing intent to buy the product","must_contain":["buy","link","cart","order"]}
 {"question":"What do people say about heat damage?","must_contain":["heat"]}
 {"question":"Which comments ask about price or restock?","must_contain":["how much","restock","price"]}
-{"question":"Summarize the buy-intent signals in the comments","must_contain":["order","cart","buy"]}
+{"question":"Summarize the buy-intent signals in the comments","must_contain":["order","cart","buy","link"]}
+{"question":"What are people saying about frizzy hair?","must_contain":["frizzy"]}
+{"question":"Which comments mention a curly hair routine?","must_contain":["curly"]}
+{"question":"Do any comments mention split ends?","must_contain":["split ends"]}
+{"question":"Are there comments about thinning hair?","must_contain":["thinning"]}
+{"question":"Which creators are in the hair care category?","must_contain":["hair care"]}
+{"question":"Do any commenters say they already ordered the product?","must_contain":["ordered"]}
+{"question":"Which comments ask where to buy?","must_contain":["where can i buy","link"]}
+{"question":"What categories do the creators fall into?","must_contain":["hair care","beauty","lifestyle","fitness"]}
+{"question":"What kinds of non-purchase engagement do videos get?","must_contain":["love this","so pretty","great video","obsessed","tutorial"]}
+{"question":"What is the product's shipping policy?","must_contain":[]}

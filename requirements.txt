@@ -1,11 +1,16 @@
-chromadb
-langgraph
-langchain-core
+chromadb>=1.0
+langgraph>=0.6,<0.7
+langchain>=0.3,<0.4
+langchain-core>=0.3,<0.4
+langchain-community>=0.3,<0.4
+langchain-anthropic>=0.3,<0.4
 anthropic
 fastapi
 uvicorn[standard]
 pandas
 faker
-ragas
+# ragas 0.4.x is incompatible with the langchain 0.3.x line (and 1.x removed modules it imports);
+# 0.2.15 + langchain 0.3.x is the known-good combo.
+ragas==0.2.15
 datasets
 python-dotenv

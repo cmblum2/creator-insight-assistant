@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: creator-insight-assistant
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false   # set as a secret in the Render dashboard — never committed

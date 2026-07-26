@@ -26,7 +26,7 @@ creator data is used or committed.
 python -m venv .venv
 . .venv/Scripts/activate            # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-setx ANTHROPIC_API_KEY "sk-ant-..." # your own key; reopen the terminal after
+cp .env.example .env                # then paste your own key into .env (gitignored)
 
 python scripts/gen_data.py          # -> data/creators.csv, data/comments.csv
 python -m app.ingest                # -> builds the Chroma index (no API key needed)
@@ -37,6 +37,12 @@ uvicorn app.server:api --reload     # open http://127.0.0.1:8000
 ```bash
 python -m eval.run_eval             # writes eval/report.md (needs the API key)
 ```
+The harness runs 15 eval questions through the graph and scores them with **RAGAS**
+(faithfulness / answer-relevancy / context-precision), using **Claude as the judge LLM** and the
+same local MiniLM embeddings the retriever uses — the whole project needs exactly one API key.
+It also reports a free, non-LLM **retrieval hit rate** (does at least one retrieved context
+contain an expected term). One eval question is deliberately unanswerable from the data
+("What is the product's shipping policy?") to verify the model refuses instead of hallucinating.
 <!-- After you run it, paste the scores here and add a "failure case I found and fixed" note. -->
 
 ## Architecture
@@ -47,6 +53,28 @@ CSVs --ingest--> Chroma  ──►  LangGraph: retrieve ─(buy-intent filter)�
 FastAPI /ask + /health  •  Docker -> cloud
 ```
 
+## Deploy (Docker → Render)
+```bash
+docker build -t creator-insight .
+docker run -p 8000:8000 -e ANTHROPIC_API_KEY=$env:ANTHROPIC_API_KEY creator-insight
+```
+The image bakes the synthetic data + Chroma index at build time, so the container is fully
+self-contained; only the API key is injected at runtime. `render.yaml` lets Render build the
+Dockerfile straight from GitHub — set `ANTHROPIC_API_KEY` as a secret env var and check
+`/health` returns `{"ok": true}`.
+
+## Tradeoffs
+- **Chroma + local MiniLM embeddings** — free, offline-friendly, and zero embedding-API cost;
+  one API key (Claude, generation + eval judging) runs the whole project. The tradeoff is
+  weaker embeddings than hosted models — acceptable at 3.2k documents.
+- **Grounded-only prompting** — the model may only answer from retrieved, numbered context and
+  must cite `[i]`; it's told to refuse rather than invent. Costs some fluency, buys trust.
+- **Index baked at Docker build time** — simplest possible deploy for a demo corpus; a real
+  system would ingest incrementally against a hosted vector DB.
+- **Regex buy-intent filter** — a cheap, auditable retrieval filter tied to a revenue signal;
+  an ML classifier would generalize better but is overkill here.
+
 ## Notes
-- `ANTHROPIC_API_KEY` is read from the environment; it is never committed or baked into the image.
+- `ANTHROPIC_API_KEY` is read from the environment (or a local `.env`); it is never committed
+  or baked into the image.
 - Re-running `app.ingest` rebuilds the index idempotently.
