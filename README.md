@@ -1,5 +1,8 @@
 # Creator Insight Assistant — RAG over creator & comment data
 
+**Live demo: https://creator-insight-assistant.onrender.com** *(free tier — first request
+after idle takes ~30s to wake)*
+
 Ask plain-English questions and get answers **grounded in the data, with citations** — e.g.
 *"Which creators mention dry or damaged hair?"* or *"Show comments with buy-intent."*
 
