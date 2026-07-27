@@ -12,4 +12,7 @@
 {"question":"Which comments ask where to buy?","must_contain":["where can i buy","link"]}
 {"question":"What categories do the creators fall into?","must_contain":["hair care","beauty","lifestyle","fitness"]}
 {"question":"What kinds of non-purchase engagement do videos get?","must_contain":["love this","so pretty","great video","obsessed","tutorial"]}
+{"question":"Which creators should we sample next for the Detangler Pro Brush?","must_contain":["rank"]}
+{"question":"What watchouts do the top-ranked creators have?","must_contain":["refund","thin evidence","watchout"]}
+{"question":"Which creators have strong buy-intent signals in their audience?","must_contain":["buy-intent"]}
 {"question":"What is the product's shipping policy?","must_contain":[]}

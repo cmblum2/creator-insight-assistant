@@ -52,7 +52,9 @@ def main():
     for case in cases:
         q = case["question"]
         out = APP.invoke({"question": q})
-        contexts = [c["text"] for c in out["contexts"]]
+        # judge must see EXACTLY what the answer model saw — including the joined quant-facts
+        # line — or correct answers get scored as hallucinations (v1's lesson, re-learned in v2)
+        contexts = [f"{c['text']}\n{c['fact_line']}" for c in out["contexts"]]
         rows.append({"question": q, "answer": out["answer"], "contexts": contexts})
         terms = [t.lower() for t in case.get("must_contain", [])]
         if terms:

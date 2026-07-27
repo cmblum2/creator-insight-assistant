@@ -1,43 +1,123 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>Creator Insight Assistant</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
-    h1 { font-size: 1.3rem; }
-    textarea { width: 100%; height: 70px; font-size: 1rem; padding: 8px; }
-    button { padding: 8px 16px; font-size: 1rem; cursor: pointer; margin-top: 8px; }
-    label { font-size: .9rem; }
-    #answer { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 6px; margin-top: 16px; }
-    #sources { font-size: .8rem; color: #555; margin-top: 8px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Creator Insight Assistant</title>
+<style>
+  :root { --bg:#0b0e11; --panel:#11151a; --border:#232a32; --text:#d7dde3; --muted:#8b96a1;
+          --accent:#22d3ee; --accent2:#f472b6; --bad:#f87171; --mono:ui-monospace,Consolas,monospace; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font:14px/1.5 system-ui,sans-serif;
+         max-width:1080px; margin:24px auto 80px; padding:0 20px; }
+  h1 { font-size:19px; font-weight:600; margin:0; }
+  .overline { color:var(--accent); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+  .sub { color:var(--muted); font-size:12.5px; margin:4px 0 18px; }
+  .panel { border:1px solid var(--border); background:var(--panel); padding:14px 16px; margin-bottom:16px; }
+  .panel h3 { margin:0 0 4px; font-size:15px; font-weight:600; }
+  .desc { color:var(--muted); font-size:12px; margin:0 0 12px; }
+  .controls { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  input,select,textarea,button.go { background:#0d1116; border:1px solid var(--border); color:var(--text);
+                                    padding:7px 10px; font-size:13px; border-radius:3px; }
+  button.go { cursor:pointer; border-color:var(--accent); color:var(--accent); }
+  label { font-size:12px; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--muted); font-weight:500; border-bottom:1px solid var(--border);
+       padding:5px 8px; white-space:nowrap; }
+  td { border-bottom:1px solid var(--border); padding:6px 8px; vertical-align:top; }
+  td.num, th.num { font-family:var(--mono); text-align:right; }
+  .handle { color:var(--accent); font-family:var(--mono); white-space:nowrap; }
+  .watch { color:var(--accent2); }
+  .flag { color:var(--bad); font-size:11px; }
+  .footnote { color:var(--muted); font-size:11.5px; margin-top:10px; }
+  details summary { cursor:pointer; color:var(--muted); font-size:12px; }
+  #answer { white-space:pre-wrap; background:#0d1116; border:1px solid var(--border); padding:12px;
+            margin-top:12px; font-size:13px; display:none; }
+  #sources { color:var(--muted); font-size:11.5px; margin-top:6px; }
+  textarea { width:100%; height:64px; }
+  .verdict { border-left:3px solid var(--accent); padding-left:10px; color:var(--muted);
+             font-size:12.5px; margin:0 0 12px; }
+  .verdict b { color:var(--text); }
+</style>
 </head>
 <body>
-  <h1>Creator Insight Assistant <small>(RAG over creator + comment data)</small></h1>
-  <textarea id="q" placeholder="e.g. Which creators mention dry or damaged hair?"></textarea><br />
-  <label><input type="checkbox" id="intent" /> only buy-intent comments</label><br />
-  <button onclick="ask()">Ask</button>
-  <div id="answer"></div>
-  <div id="sources"></div>
-  <script>
-    async function ask() {
-      const question = document.getElementById('q').value;
-      document.getElementById('answer').textContent = 'thinking…';
-      document.getElementById('sources').textContent = '';
-      const res = await fetch('/ask', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, intent_only: document.getElementById('intent').checked })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        document.getElementById('answer').textContent = 'error: ' + (data.detail || res.status);
-        return;
-      }
-      document.getElementById('answer').textContent = data.answer;
-      document.getElementById('sources').textContent =
-        'sources: ' + data.sources.map(s => s.handle || s.source).join(', ');
-    }
-  </script>
+  <div class="overline">synthetic demo · RAG + sampling engine</div>
+  <h1>Creator Insight Assistant</h1>
+  <div class="sub">Who to send product to next, and why — grounded answers with citations over
+    synthetic creator, comment, and scoring data. Ordinal ranks only; matched controls protected;
+    already-seeded excluded.</div>
+
+  <div class="panel">
+    <h3>Next sampling picks</h3>
+    <p class="desc">Deterministic: eligible creators by ordinal rank. Filter by suggested product
+      (try "Detangler").</p>
+    <div class="controls">
+      <input id="product" placeholder="product filter" style="width:220px" />
+      <select id="n"><option>5</option><option selected>10</option><option>20</option></select>
+      <button class="go" onclick="loadRecs()">Refresh</button>
+    </div>
+    <div class="verdict" id="verdict">loading…</div>
+    <div style="overflow-x:auto"><table id="recs"></table></div>
+    <div class="footnote" id="excl"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Ask the assistant</h3>
+    <p class="desc">Free-text questions, answered only from retrieved evidence, with citations.</p>
+    <textarea id="q" placeholder="e.g. Which creators mention dry or damaged hair?"></textarea>
+    <div class="controls" style="margin-top:8px">
+      <button class="go" onclick="ask()">Ask</button>
+      <label><input type="checkbox" id="intent" /> only buy-intent comments</label>
+    </div>
+    <div id="answer"></div>
+    <div id="sources"></div>
+  </div>
+
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function loadRecs() {
+  const p = document.getElementById("product").value.trim();
+  const n = document.getElementById("n").value;
+  document.getElementById("verdict").textContent = "loading…";
+  const r = await fetch(`/recommend?product=${encodeURIComponent(p)}&n=${n}`);
+  const d = await r.json();
+  const rows = d.candidates.map(c => `
+    <tr>
+      <td class="num">#${c.rank}</td>
+      <td><span class="handle">${esc(c.handle)}</span>${c.cold_start ? ' <span class="flag">cold-start</span>' : ""}</td>
+      <td class="num">${c.followers ? Number(c.followers).toLocaleString() : ""}</td>
+      <td>${esc(c.tier)}</td>
+      <td class="num">${c.total_gmv_30d ? "$" + Number(c.total_gmv_30d).toFixed(0) : ""}</td>
+      <td>${esc(c.sample_status)}</td>
+      <td>${esc(c.suggested_product)}</td>
+      <td style="max-width:340px">
+        ${esc(c.signals)}
+        ${c.watchouts ? `<details><summary>watchouts</summary><span class="watch">${esc(c.watchouts)}</span></details>` : ""}
+      </td>
+    </tr>`).join("");
+  document.getElementById("recs").innerHTML = `
+    <tr><th class="num">rank</th><th>creator</th><th class="num">followers</th><th>tier</th>
+        <th class="num">30d GMV</th><th>sample status</th><th>suggested product</th><th>evidence</th></tr>${rows}`;
+  document.getElementById("verdict").innerHTML = d.candidates.length
+    ? `Top pick: <b>${esc(d.candidates[0].handle)}</b> (rank #${d.candidates[0].rank}) — ${d.candidates.length} eligible picks shown.`
+    : "No eligible creators match this filter.";
+  document.getElementById("excl").textContent =
+    `guardrails: ${d.excluded.seeded} already-seeded and ${d.excluded.control} matched-control creators excluded before ranking (ordinal-only scores).`;
+}
+async function ask() {
+  const el = document.getElementById("answer");
+  el.style.display = "block"; el.textContent = "thinking…";
+  document.getElementById("sources").textContent = "";
+  const r = await fetch("/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: document.getElementById("q").value,
+                           intent_only: document.getElementById("intent").checked }) });
+  const d = await r.json();
+  if (!r.ok) { el.textContent = "error: " + (d.detail || r.status); return; }
+  el.textContent = d.answer;
+  document.getElementById("sources").textContent =
+    "sources: " + [...new Set(d.sources.map(s => s.handle || s.source))].join(", ");
+}
+loadRecs();
+</script>
 </body>
 </html>

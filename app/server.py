@@ -18,6 +18,12 @@ def health():
     return {"ok": True}
 
 
+@api.get("/recommend")
+def recs(product: str = "", n: int = 10):
+    from app.recommend import recommend
+    return recommend(product=product, n=min(max(n, 1), 50))
+
+
 @api.post("/ask")
 def ask(q: Q):
     if not os.getenv("ANTHROPIC_API_KEY"):

@@ -27,8 +27,12 @@ class S(TypedDict):
 
 
 def retrieve(s):
+    from app.enrich import enrich, fact_line
     r = _col.query(query_texts=[s["question"]], n_results=8)
-    ctx = [{"text": d, "meta": m} for d, m in zip(r["documents"][0], r["metadatas"][0])]
+    ctx = []
+    for d, m in zip(r["documents"][0], r["metadatas"][0]):
+        e = enrich(m.get("creator_id", ""))
+        ctx.append({"text": d, "meta": m, "facts": e, "fact_line": fact_line(e)})
     if s.get("intent_only"):
         ctx = [c for c in ctx if buy_intent(c["text"])] or ctx
     return {"contexts": ctx}
@@ -40,11 +44,14 @@ def answer(s):
     def label(c):
         h = c["meta"].get("handle", "")
         return f"{c['meta'].get('source')}{', ' + h if h else ''}"
-    block = "\n\n".join(f"[{i}] ({label(c)}) {c['text']}"
+    block = "\n\n".join(f"[{i}] ({label(c)}) {c['text']}\n{c['fact_line']}"
                         for i, c in enumerate(s["contexts"]))
     msg = _client().messages.create(
         model=ANSWER_MODEL, max_tokens=700,
         system=("Answer ONLY from the numbered context. Cite sources like [0],[2]. "
+                "Ranks are ORDINAL — compare order, never treat scores as spend sizes. "
+                "Never recommend sampling a creator marked MATCHED CONTROL or ALREADY "
+                "SEEDED unless the question asks about them. "
                 "If the context doesn't answer it, say so — do not invent creators or quotes."),
         messages=[{"role": "user",
                    "content": f"Context:\n{block}\n\nQuestion: {s['question']}"}])
