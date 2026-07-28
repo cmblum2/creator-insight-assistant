@@ -1,18 +1,18 @@
-{"question":"Which creators mention dry or damaged hair?","must_contain":["hair"]}
-{"question":"Find comments showing intent to buy the product","must_contain":["buy","link","cart","order"]}
-{"question":"What do people say about heat damage?","must_contain":["heat"]}
-{"question":"Which comments ask about price or restock?","must_contain":["how much","restock","price"]}
-{"question":"Summarize the buy-intent signals in the comments","must_contain":["order","cart","buy","link"]}
-{"question":"What are people saying about frizzy hair?","must_contain":["frizzy"]}
-{"question":"Which comments mention a curly hair routine?","must_contain":["curly"]}
-{"question":"Do any comments mention split ends?","must_contain":["split ends"]}
-{"question":"Are there comments about thinning hair?","must_contain":["thinning"]}
-{"question":"Which creators are in the hair care category?","must_contain":["hair care"]}
-{"question":"Do any commenters say they already ordered the product?","must_contain":["ordered"]}
-{"question":"Which comments ask where to buy?","must_contain":["where can i buy","link"]}
-{"question":"What categories do the creators fall into?","must_contain":["hair care","beauty","lifestyle","fitness"]}
-{"question":"What kinds of non-purchase engagement do videos get?","must_contain":["love this","so pretty","great video","obsessed","tutorial"]}
-{"question":"Which creators should we sample next for the Detangler Pro Brush?","must_contain":["rank"]}
-{"question":"What watchouts do the top-ranked creators have?","must_contain":["refund","thin evidence","watchout"]}
-{"question":"Which creators have strong buy-intent signals in their audience?","must_contain":["buy-intent"]}
-{"question":"What is the product's shipping policy?","must_contain":[]}
+{"question":"Which creators mention dry or damaged hair?","must_contain":["hair"],"reference":"Several comments contain the phrase 'dry damaged hair', usually paired with a compliment such as 'love this' or 'so pretty'."}
+{"question":"Find comments showing intent to buy the product","must_contain":["buy","link","cart","order"],"reference":"Buy-intent comments include 'where can i buy this', 'drop the link please', 'just ordered mine', 'adding to cart now', and 'need this asap'."}
+{"question":"What do people say about heat damage?","must_contain":["heat"],"reference":"Some comments mention 'heat damage', typically alongside neutral praise like 'great video' or 'obsessed'."}
+{"question":"Which comments ask about price or restock?","must_contain":["how much","restock","price"],"reference":"Comments asking about price or restock include 'how much is it' and 'restock when??'."}
+{"question":"Summarize the buy-intent signals in the comments","must_contain":["order","cart","buy","link"],"reference":"Buy-intent signals include comments such as 'just ordered mine', 'adding to cart now', 'drop the link please', 'where can i buy this', and 'need this asap', showing readiness to purchase."}
+{"question":"What are people saying about frizzy hair?","must_contain":["frizzy"],"reference":"Comments mention 'frizzy hair', usually combined with a compliment such as 'so pretty' or 'love this'."}
+{"question":"Which comments mention a curly hair routine?","must_contain":["curly"],"reference":"Comments reference a 'curly routine', often paired with praise like 'tutorial please' or 'obsessed'."}
+{"question":"Do any comments mention split ends?","must_contain":["split ends"],"reference":"Yes, some comments mention 'split ends', typically paired with a neutral compliment."}
+{"question":"Are there comments about thinning hair?","must_contain":["thinning"],"reference":"Yes, comments mention 'thinning hair', usually combined with praise such as \"you're glowing\" or 'love this'."}
+{"question":"Which creators are in the hair care category?","must_contain":["hair care"],"reference":"Creators are labeled with a niche of hair care, beauty, lifestyle, or fitness; the relevant creators here carry the 'hair care' category."}
+{"question":"Do any commenters say they already ordered the product?","must_contain":["ordered"],"reference":"Yes, the comment 'just ordered mine' indicates a commenter who already ordered."}
+{"question":"Which comments ask where to buy?","must_contain":["where can i buy","link"],"reference":"Comments asking where to buy include 'where can i buy this' and 'drop the link please'."}
+{"question":"What categories do the creators fall into?","must_contain":["hair care","beauty","lifestyle","fitness"],"reference":"Creators fall into four categories: hair care, beauty, lifestyle, and fitness."}
+{"question":"What kinds of non-purchase engagement do videos get?","must_contain":["love this","so pretty","great video","obsessed","tutorial"],"reference":"Non-purchase engagement includes neutral comments such as 'love this', 'so pretty', 'great video', 'obsessed', 'tutorial please', \"what's the song\", and \"you're glowing\"."}
+{"question":"Which creators should we sample next for the Detangler Pro Brush?","must_contain":["rank"],"reference":"The engine ranks creators by ordinal rank position for the Detangler Pro Brush; top-ranked creators with a high buy-intent share and enough tracked videos are the sampling picks."}
+{"question":"What watchouts do the top-ranked creators have?","must_contain":["refund","thin evidence","watchout"],"reference":"Watchouts include a refund rate worse than peers and, for cold-start creators, only a few tracked videos which is thin evidence."}
+{"question":"Which creators have strong buy-intent signals in their audience?","must_contain":["buy-intent"],"reference":"Creators with a high buy-intent share of recent comments have strong buy-intent signals in their audience."}
+{"question":"What is the product's shipping policy?","must_contain":[],"reference":"The comment and creator data contain no information about the product's shipping policy, so the assistant should decline rather than guess."}
