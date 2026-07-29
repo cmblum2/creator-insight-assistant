@@ -24,6 +24,38 @@ def recs(product: str = "", n: int = 10):
     return recommend(product=product, n=min(max(n, 1), 50))
 
 
+@api.get("/economics")
+def economics():
+    """Unit economics: ROI, LTV/retention, size-the-prize, sensitivity — revenue turned into profit."""
+    from app.economics import unit_economics, size_the_prize, sensitivity
+    from app.cohorts import ltv, retention_curve
+    try:
+        return {"unit_economics": unit_economics(), "size_the_prize": size_the_prize(),
+                "sensitivity": sensitivity(), "ltv": ltv(), "retention": retention_curve()}
+    except Exception as e:
+        raise HTTPException(503, f"economics unavailable: {str(e)[:200]}")
+
+
+@api.get("/holdout")
+def holdout():
+    """The controlled test: retrospective natural-experiment readout + forward randomized-ledger status."""
+    from app.holdout import report
+    try:
+        return report()
+    except Exception as e:
+        raise HTTPException(503, f"holdout unavailable: {str(e)[:200]}")
+
+
+@api.get("/drift")
+def drift():
+    """Model-drift monitor: input-feature PSI, causal-skill decay, hit-rate drop vs a saved baseline."""
+    from app.drift import drift_report
+    try:
+        return drift_report()
+    except Exception as e:
+        raise HTTPException(503, f"drift unavailable: {str(e)[:200]}")
+
+
 @api.post("/ask")
 def ask(q: Q):
     if not os.getenv("ANTHROPIC_API_KEY"):

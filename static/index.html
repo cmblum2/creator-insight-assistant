@@ -5,76 +5,169 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Creator Insight Assistant</title>
 <style>
-  :root { --bg:#0b0e11; --panel:#11151a; --border:#232a32; --text:#d7dde3; --muted:#8b96a1;
-          --accent:#22d3ee; --accent2:#f472b6; --bad:#f87171; --mono:ui-monospace,Consolas,monospace; }
+  :root { --bg:#0a0d10; --panel:#12161c; --panel2:#161b22; --raised:#1a2029;
+          --border:#232b35; --border2:#2e3947; --text:#e6ebf0; --muted:#8b97a4; --faint:#5b6672;
+          --accent:#38bdf8; --accent2:#f472b6; --good:#34d399; --bad:#f87171; --warn:#fbbf24;
+          --mono:ui-monospace,"SF Mono",Consolas,monospace; }
   * { box-sizing:border-box; }
-  body { background:var(--bg); color:var(--text); font:14px/1.5 system-ui,sans-serif;
-         max-width:1080px; margin:24px auto 80px; padding:0 20px; }
-  h1 { font-size:19px; font-weight:600; margin:0; }
-  .overline { color:var(--accent); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
-  .sub { color:var(--muted); font-size:12.5px; margin:4px 0 18px; }
-  .panel { border:1px solid var(--border); background:var(--panel); padding:14px 16px; margin-bottom:16px; }
-  .panel h3 { margin:0 0 4px; font-size:15px; font-weight:600; }
+  body { background:radial-gradient(1100px 520px at 50% -220px, #131c27 0%, var(--bg) 62%) fixed;
+         color:var(--text); font:14px/1.55 system-ui,-apple-system,sans-serif;
+         max-width:1180px; margin:0 auto; padding:26px 22px 90px; }
+  .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:22px; }
+  h1 { font-size:22px; font-weight:650; margin:3px 0 0; letter-spacing:-.01em; }
+  .overline { color:var(--accent); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; font-weight:600; }
+  .sub { color:var(--muted); font-size:12.5px; margin:5px 0 0; max-width:680px; }
+  .health { display:flex; gap:14px; align-items:center; font-size:12px; color:var(--muted);
+            background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:8px 13px; }
+  .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+  .dot.good { background:var(--good); box-shadow:0 0 6px var(--good); }
+  .dot.bad { background:var(--bad); box-shadow:0 0 6px var(--bad); }
+  .dot.accent { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+  .sectlabel { color:var(--faint); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; margin:0 0 9px; font-weight:600; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:12px; margin-bottom:24px; }
+  .kpi { background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--border); border-radius:11px; padding:14px 16px; }
+  .kpi .label { color:var(--muted); font-size:10px; letter-spacing:.07em; text-transform:uppercase; }
+  .kpi .value { font:600 27px/1.05 var(--mono); margin:7px 0 4px; letter-spacing:-.02em; color:var(--text); }
+  .kpi .sub { color:var(--faint); font-size:10.5px; line-height:1.35; }
+  .kpi.accent .value { color:var(--accent); } .kpi.good .value { color:var(--good); }
+  .kpi.pink .value { color:var(--accent2); } .kpi.warn .value { color:var(--warn); }
+  .tabs { display:flex; gap:5px; align-items:center; flex-wrap:wrap; margin-bottom:18px; border-bottom:1px solid var(--border); padding-bottom:13px; }
+  .tabgroup { color:var(--faint); font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; margin:0 3px 0 12px; }
+  .tabgroup:first-child { margin-left:0; }
+  .tabs button { background:none; border:1px solid transparent; color:var(--muted); padding:6px 13px; cursor:pointer; font-size:13px; border-radius:7px; }
+  .tabs button:hover { color:var(--text); background:var(--raised); }
+  .tabs button.active { color:var(--bg); background:var(--accent); border-color:var(--accent); font-weight:600; }
+  .panel { border:1px solid var(--border); background:var(--panel); padding:16px 18px; margin-bottom:16px; border-radius:11px; }
+  .panel h3 { margin:0 0 4px; font-size:14.5px; font-weight:600; }
   .desc { color:var(--muted); font-size:12px; margin:0 0 12px; }
   .controls { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
-  input,select,textarea,button.go { background:#0d1116; border:1px solid var(--border); color:var(--text);
-                                    padding:7px 10px; font-size:13px; border-radius:3px; }
-  button.go { cursor:pointer; border-color:var(--accent); color:var(--accent); }
+  input,select,textarea,button.go { background:#0d1218; border:1px solid var(--border2); color:var(--text); padding:8px 11px; font-size:13px; border-radius:7px; }
+  button.go { cursor:pointer; border-color:var(--accent); color:var(--accent); font-weight:500; }
+  button.go:hover { background:var(--accent); color:var(--bg); }
   label { font-size:12px; color:var(--muted); }
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
-  th { text-align:left; color:var(--muted); font-weight:500; border-bottom:1px solid var(--border);
-       padding:5px 8px; white-space:nowrap; }
-  td { border-bottom:1px solid var(--border); padding:6px 8px; vertical-align:top; }
+  th { text-align:left; color:var(--muted); font-weight:500; border-bottom:1px solid var(--border2); padding:7px 8px; white-space:nowrap; }
+  td { border-bottom:1px solid var(--border); padding:7px 8px; vertical-align:top; }
+  table tr:hover td { background:var(--panel2); }
   td.num, th.num { font-family:var(--mono); text-align:right; }
   .handle { color:var(--accent); font-family:var(--mono); white-space:nowrap; }
   .watch { color:var(--accent2); }
   .flag { color:var(--bad); font-size:11px; }
   .footnote { color:var(--muted); font-size:11.5px; margin-top:10px; }
   details summary { cursor:pointer; color:var(--muted); font-size:12px; }
-  #answer { white-space:pre-wrap; background:#0d1116; border:1px solid var(--border); padding:12px;
-            margin-top:12px; font-size:13px; display:none; }
+  #answer { white-space:pre-wrap; background:#0d1218; border:1px solid var(--border2); padding:13px; margin-top:12px; font-size:13px; display:none; border-radius:8px; }
   #sources { color:var(--muted); font-size:11.5px; margin-top:6px; }
   textarea { width:100%; height:64px; }
-  .verdict { border-left:3px solid var(--accent); padding-left:10px; color:var(--muted);
-             font-size:12.5px; margin:0 0 12px; }
+  .verdict { border-left:3px solid var(--accent); padding:2px 0 2px 11px; color:var(--muted); font-size:12.5px; margin:0 0 12px; }
   .verdict b { color:var(--text); }
 </style>
 </head>
 <body>
-  <div class="overline">synthetic demo · RAG + sampling engine</div>
-  <h1>Creator Insight Assistant</h1>
-  <div class="sub">Who to send product to next, and why — grounded answers with citations over
-    synthetic creator, comment, and scoring data. Ordinal ranks only; matched controls protected;
-    already-seeded excluded.</div>
-
-  <div class="panel">
-    <h3>Next sampling picks</h3>
-    <p class="desc">Deterministic: eligible creators by ordinal rank. Filter by suggested product
-      (try "Detangler").</p>
-    <div class="controls">
-      <input id="product" placeholder="product filter" style="width:220px" />
-      <select id="n"><option>5</option><option selected>10</option><option>20</option></select>
-      <button class="go" onclick="loadRecs()">Refresh</button>
+  <div class="topbar">
+    <div>
+      <div class="overline">synthetic demo · RAG + sampling engine + ROI</div>
+      <h1>Creator Insight Assistant</h1>
+      <div class="sub">Who to send product to next, why, and whether it makes money — grounded answers
+        with citations over 100% synthetic creator, comment, and outcome data. Ordinal ranks only;
+        matched controls protected; already-seeded excluded.</div>
     </div>
-    <div class="verdict" id="verdict">loading…</div>
-    <div style="overflow-x:auto"><table id="recs"></table></div>
-    <div class="footnote" id="excl"></div>
+    <div class="health" id="health"><span class="dot accent"></span>synthetic data</div>
   </div>
 
-  <div class="panel">
-    <h3>Ask the assistant</h3>
-    <p class="desc">Free-text questions, answered only from retrieved evidence, with citations.</p>
-    <textarea id="q" placeholder="e.g. Which creators mention dry or damaged hair?"></textarea>
-    <div class="controls" style="margin-top:8px">
-      <button class="go" onclick="ask()">Ask</button>
-      <label><input type="checkbox" id="intent" /> only buy-intent comments</label>
+  <div class="sectlabel">At a glance</div>
+  <div class="kpis" id="kpis">
+    <div class="kpi accent"><div class="label">Portfolio ROI</div><div class="value" id="kpi-roi">—</div>
+      <div class="sub">incremental profit ÷ sample spend</div></div>
+    <div class="kpi good"><div class="label">Incremental profit</div><div class="value" id="kpi-profit">—</div>
+      <div class="sub">labeled cohort, refund-adjusted</div></div>
+    <div class="kpi warn"><div class="label">Hit rate</div><div class="value" id="kpi-hit">—</div>
+      <div class="sub">samples ROI-positive — the model's job is raising this</div></div>
+    <div class="kpi"><div class="label">Causal skill</div><div class="value" id="kpi-skill">—</div>
+      <div class="sub">rank → lift (Spearman; negative = skill)</div></div>
+    <div class="kpi pink"><div class="label">Holdout lift</div><div class="value" id="kpi-holdout">—</div>
+      <div class="sub">engine picks vs status quo, per sample</div></div>
+  </div>
+
+  <nav class="tabs">
+    <span class="tabgroup">Act</span>
+    <button class="active" id="tab-recs" onclick="showTab('recs')">Sample</button>
+    <span class="tabgroup">Ask</span>
+    <button id="tab-ask" onclick="showTab('ask')">Copilot</button>
+    <span class="tabgroup">Prove</span>
+    <button id="tab-econ" onclick="showTab('econ')">Economics</button>
+  </nav>
+
+  <div id="view-recs">
+    <div class="panel">
+      <h3>Next sampling picks</h3>
+      <p class="desc">Deterministic: eligible creators by ordinal rank. Filter by suggested product
+        (try "Detangler"). Already-seeded and matched-control creators are excluded before ranking.</p>
+      <div class="controls">
+        <input id="product" placeholder="product filter" style="width:220px" />
+        <select id="n"><option>5</option><option selected>10</option><option>20</option></select>
+        <button class="go" onclick="loadRecs()">Refresh</button>
+      </div>
+      <div class="verdict" id="verdict">loading…</div>
+      <div style="overflow-x:auto"><table id="recs"></table></div>
+      <div class="footnote" id="excl"></div>
     </div>
-    <div id="answer"></div>
-    <div id="sources"></div>
+  </div>
+
+  <div id="view-ask" style="display:none">
+    <div class="panel">
+      <h3>Ask the assistant</h3>
+      <p class="desc">Free-text questions, answered only from retrieved evidence, with citations.
+        RAG over the synthetic comment corpus (MMR retrieval; RAGAS-evaluated).</p>
+      <textarea id="q" placeholder="e.g. Which creators mention dry or damaged hair?"></textarea>
+      <div class="controls" style="margin-top:8px">
+        <button class="go" onclick="ask()">Ask</button>
+        <label><input type="checkbox" id="intent" /> only buy-intent comments</label>
+      </div>
+      <div id="answer"></div>
+      <div id="sources"></div>
+    </div>
+  </div>
+
+  <div id="view-econ" style="display:none">
+    <div class="panel">
+      <h3>Unit economics — does a sample make money?</h3>
+      <p class="desc">Revenue turned into profit. Incremental GMV is refund-adjusted; net margin = 40.5%
+        product contribution − 10.5% affiliate commission = 30%; sample cost is a flagged assumption,
+        stress-tested below.</p>
+      <div class="verdict" id="econ-headline">loading…</div>
+      <div id="econ-insight" class="verdict" style="border-left-color:var(--accent2)"></div>
+      <div style="overflow-x:auto"><table id="econ-drivers"></table></div>
+    </div>
+    <div class="panel">
+      <h3>Creator LTV &amp; retention — recurring or one-and-done?</h3>
+      <div class="verdict" id="econ-ltv">loading…</div>
+      <div style="overflow-x:auto"><table id="econ-retention"></table></div>
+    </div>
+    <div class="panel">
+      <h3>Size the prize &amp; sensitivity</h3>
+      <div class="verdict" id="econ-prize"></div>
+      <p class="desc" style="margin-top:8px">Portfolio blended ROI across the two estimated inputs
+        (margin × sample cost) — a defensible band, not a false point estimate.</p>
+      <div style="overflow-x:auto"><table id="econ-sens"></table></div>
+      <div class="footnote" id="econ-sens-note"></div>
+    </div>
+    <div class="panel">
+      <h3>How we prove it — the controlled test</h3>
+      <div class="verdict" id="econ-holdout">loading…</div>
+    </div>
   </div>
 
 <script>
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = v => v == null ? "—" : "$" + Number(v).toLocaleString(undefined, {maximumFractionDigits: 0});
+let econLoaded = false;
+function showTab(t) {
+  for (const v of ["recs", "ask", "econ"]) {
+    document.getElementById("view-" + v).style.display = t === v ? "" : "none";
+    document.getElementById("tab-" + v).className = t === v ? "active" : "";
+  }
+  if (t === "econ" && !econLoaded) { econLoaded = true; loadEcon(); }
+}
 async function loadRecs() {
   const p = document.getElementById("product").value.trim();
   const n = document.getElementById("n").value;
@@ -90,14 +183,12 @@ async function loadRecs() {
       <td class="num">${c.total_gmv_30d ? "$" + Number(c.total_gmv_30d).toFixed(0) : ""}</td>
       <td>${esc(c.sample_status)}</td>
       <td>${esc(c.suggested_product)}</td>
-      <td style="max-width:340px">
-        ${esc(c.signals)}
-        ${c.watchouts ? `<details><summary>watchouts</summary><span class="watch">${esc(c.watchouts)}</span></details>` : ""}
-      </td>
+      <td style="max-width:340px">${esc(c.signals)}
+        ${c.watchouts ? `<details><summary>watchouts</summary><span class="watch">${esc(c.watchouts)}</span></details>` : ""}</td>
     </tr>`).join("");
-  document.getElementById("recs").innerHTML = `
-    <tr><th class="num">rank</th><th>creator</th><th class="num">followers</th><th>tier</th>
-        <th class="num">30d GMV</th><th>sample status</th><th>suggested product</th><th>evidence</th></tr>${rows}`;
+  document.getElementById("recs").innerHTML =
+    `<tr><th class="num">rank</th><th>creator</th><th class="num">followers</th><th>tier</th>
+         <th class="num">30d GMV</th><th>sample status</th><th>suggested product</th><th>evidence</th></tr>${rows}`;
   document.getElementById("verdict").innerHTML = d.candidates.length
     ? `Top pick: <b>${esc(d.candidates[0].handle)}</b> (rank #${d.candidates[0].rank}) — ${d.candidates.length} eligible picks shown.`
     : "No eligible creators match this filter.";
@@ -117,7 +208,83 @@ async function ask() {
   document.getElementById("sources").textContent =
     "sources: " + [...new Set(d.sources.map(s => s.handle || s.source))].join(", ");
 }
+async function loadKPIs() {
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const [ec, dr, ho] = await Promise.all([
+    fetch("/economics").then(r => r.json()).catch(() => ({})),
+    fetch("/drift").then(r => r.json()).catch(() => ({})),
+    fetch("/holdout").then(r => r.json()).catch(() => ({})),
+  ]);
+  const ue = ec.unit_economics || {}, p = ue.portfolio || {};
+  set("kpi-roi", p.blended_roi != null ? Number(p.blended_roi).toFixed(2) + "×" : "—");
+  set("kpi-profit", money(p.incremental_profit));
+  set("kpi-hit", ue.pct_roi_positive != null ? Math.round(ue.pct_roi_positive * 100) + "%" : "—");
+  const sk = (dr.skill || {}).current; set("kpi-skill", sk != null ? Number(sk).toFixed(2) : "—");
+  const q = ho.quasi_experiment || {}; set("kpi-holdout", q.lift != null ? "+" + money(q.lift) : "—");
+  const okDrift = dr.status === "ok" || dr.status === "baseline_written";
+  document.getElementById("health").innerHTML =
+    `<span class="dot accent"></span>synthetic data<span class="dot ${okDrift ? 'good' : 'bad'}"></span>drift ${okDrift ? 'stable' : 'detected'}`;
+}
+async function loadEcon() {
+  const r = await fetch("/economics"); const d = await r.json();
+  if (!r.ok) { document.getElementById("econ-headline").textContent = "economics unavailable"; return; }
+  const ue = d.unit_economics || {}, p = ue.portfolio || {}, dr = ue.drivers || {};
+  document.getElementById("econ-headline").innerHTML =
+    `Portfolio: <b style="color:var(--accent)">${p.blended_roi}× blended ROI</b> — <b>${money(p.incremental_profit)}</b> ` +
+    `incremental profit on ${money(p.sample_cost_total)} sample spend (${money(p.margin_per_dollar_spent)} contribution ` +
+    `per $1 seeded), n=${ue.n_samples}. Median sample: <b>${money(ue.median_incremental_profit)}</b> profit, ${ue.median_roi}× ROI.`;
+  document.getElementById("econ-insight").innerHTML =
+    `<b>The power-law that justifies the engine:</b> only <b>${Math.round(ue.pct_roi_positive*100)}%</b> of samples ` +
+    `are ROI-positive and the median one loses money — yet the portfolio nets ${p.blended_roi}× because a few winners ` +
+    `carry it. The engine's whole job is lifting that hit rate above ${Math.round(ue.pct_roi_positive*100)}%.`;
+  document.getElementById("econ-drivers").innerHTML =
+    `<tr><th>economic driver</th><th class="num">value</th><th>source</th></tr>` +
+    `<tr><td>product contribution margin</td><td class="num">${Math.round(dr.product_contrib*100)}%</td><td class="footnote">channel lifetime</td></tr>` +
+    `<tr><td>affiliate commission</td><td class="num">${Math.round(dr.commission_rate*100)}%</td><td class="footnote">of GMV</td></tr>` +
+    `<tr><td>net contribution margin</td><td class="num">${Math.round(dr.net_margin*100)}%</td><td class="footnote">per $1 incremental GMV (derived)</td></tr>` +
+    `<tr><td>sample cost (COGS+ship)</td><td class="num">${money(dr.sample_cost)}</td><td class="flag">assumption — stress-tested below</td></tr>`;
+  const lt = d.ltv || {}, ret = d.retention || {};
+  document.getElementById("econ-ltv").innerHTML = lt.median_ltv_net_contribution == null ? "no order data" :
+    `Median creator LTV (net contribution): <b>${money(lt.median_ltv_net_contribution)}</b> (mean ${money(lt.mean_ltv_net_contribution)}, ` +
+    `${Number(lt.n_selling_creators).toLocaleString()} selling creators). <b style="color:var(--accent)">${Math.round(lt.repeat_rate*100)}%</b> ` +
+    `sell in ≥2 months; <b style="color:var(--bad)">${Math.round(lt.one_and_done_rate*100)}%</b> one-and-done. ` +
+    `<span class="footnote">LTV is a right-censored lower bound.</span>`;
+  if (ret.curve) document.getElementById("econ-retention").innerHTML =
+    `<tr><th>months after first order</th><th class="num">still selling</th><th class="num">observable creators</th></tr>` +
+    ret.curve.map(c => `<tr><td>month ${c.month}</td>
+      <td class="num" style="color:${c.retained<0.25?'var(--bad)':'inherit'}">${Math.round(c.retained*100)}%</td>
+      <td class="num">${Number(c.observable_creators).toLocaleString()}</td></tr>`).join("");
+  const stp = d.size_the_prize || {};
+  document.getElementById("econ-prize").innerHTML = stp.annual_incremental_profit == null ? "" :
+    `At <b>${stp.samples_per_month}</b> samples/mo: <b style="color:var(--accent)">${money(stp.annual_incremental_profit)}/yr</b> ` +
+    `expected incremental profit on ${money(stp.annual_sample_spend)} spend (EV ${money(stp.expected_profit_per_sample)}/sample). ` +
+    `<span class="footnote">${esc(stp.caveat||'')}</span>`;
+  const sens = d.sensitivity || {};
+  if (sens.rows) {
+    const cc = Object.keys(sens.rows[0]).filter(k => k.startsWith("cost_"));
+    document.getElementById("econ-sens").innerHTML =
+      `<tr><th>net margin \\ sample cost</th>` + cc.map(c => `<th class="num">$${c.split("_")[1]}</th>`).join("") + `</tr>` +
+      sens.rows.map(row => `<tr><td>${Math.round(row.net_margin*100)}%</td>` +
+        cc.map(c => `<td class="num" style="color:${row[c]>=1?'var(--accent)':'var(--bad)'}">${row[c]}×</td>`).join("") + `</tr>`).join("");
+    document.getElementById("econ-sens-note").textContent = sens.note || "";
+  }
+  try {
+    const h = await (await fetch("/holdout")).json();
+    const q = h.quasi_experiment;
+    document.getElementById("econ-holdout").innerHTML = q && q.lift != null ?
+      `<b>Retrospective natural experiment</b> (engine top-tier vs bottom-tier rank, realized incremental profit): ` +
+      `lift <b style="color:${q.lift>0?'var(--accent)':'var(--bad)'}">${money(q.lift)}/sample</b> ` +
+      `(95% CI [${money(q.ci_low)}, ${money(q.ci_high)}], p=${q.p_value}${q.significant?', significant':''}). ` +
+      `<span class="footnote">Observational (selection caveat) — the pre-registered forward RANDOMIZED holdout ` +
+      `(${esc(h.forward_holdout_status||'')}) removes that bias. Power: ${esc(h.power_note||'')}</span>`
+      : `<span class="footnote">${esc((h && h.note) || 'holdout not yet run')}</span>`;
+  } catch (e) {
+    document.getElementById("econ-holdout").innerHTML =
+      `<span class="footnote">Randomized holdout is designed + coded (app/experiment.py) but not yet run.</span>`;
+  }
+}
 loadRecs();
+loadKPIs();
 </script>
 </body>
 </html>

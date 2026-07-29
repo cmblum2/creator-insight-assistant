@@ -102,11 +102,42 @@ for s, ctl in zip(seeded_ids, control_ids):
                      "control_creator_id": ctl, "score_band": "p80-100",
                      "category": "hair care", "follower_band": "3"})
 
+# ── v3: synthetic sampling OUTCOMES + order timeline ────────────────────────────────────────
+# Past sampling history with a causal-style incremental-GMV label per sample, shaped like the real
+# thing: POWER-LAW (a few big winners carry the portfolio), RANK-CORRELATED (better rank -> more
+# lift, so the scorer shows negative Spearman skill), and REFUND-ADJUSTED. Plus a per-creator order
+# timeline so LTV + retention cohorts have data. 100% synthetic.
+rank_of = {c["creator_id"]: pos for pos, c in enumerate(by_rank, start=1)}
+outcomes, orders = [], []
+for c in by_rank:                                   # every creator has a past-sample outcome
+    cid = c["creator_id"]
+    rf = 1 - (rank_of[cid] - 1) / len(by_rank)       # rank fraction, 1.0 = best-ranked
+    win = random.random() < (0.04 + 0.52 * rf)       # steep in rank (~4-56%) -> ~30% overall, strong skill
+    if win:
+        lift = (70 + 360 * rf) * (0.3 + random.expovariate(1.0))   # rank-scaled base x power-law noise
+    else:
+        lift = -random.uniform(2, 45) * (1.6 - rf)        # small loss, bigger for worse rank
+    refund = round(random.uniform(0.03, 0.15), 3) if random.random() < 0.22 else 0.0  # most 0
+    lift_refadj = round(lift * (1 - refund), 2) if lift > 0 else round(lift, 2)
+    outcomes.append({"creator_id": cid, "handle": c["handle"], "rank_position": rank_of[cid],
+                     "did_lift": round(lift, 2), "did_lift_refadj": lift_refadj, "refund_rate": refund})
+    # order timeline (relative months, 0 = first order): winners sell; retention decays -> ~64% one-and-done
+    if lift > 0:
+        month, cont = 0, 1.0
+        while month <= 5 and random.random() < cont:
+            gmv = max(5.0, random.expovariate(1 / (60 + 220 * rf)))
+            orders.append({"creator_id": cid, "handle": c["handle"], "month_idx": month,
+                           "net_gmv": round(gmv * (1 - refund), 2)})
+            cont = 0.36 if month == 0 else 0.6        # ~36% survive past month 0, then flatter
+            month += 1
+
 for name, rows in [("creators", creators), ("comments", comments),
                    ("creator_insights", insights), ("roster", roster),
-                   ("seeding_decisions", decisions), ("seeding_controls", controls)]:
+                   ("seeding_decisions", decisions), ("seeding_controls", controls),
+                   ("outcomes", outcomes), ("orders", orders)]:
     with open(f"data/{name}.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=rows[0].keys()); w.writeheader(); w.writerows(rows)
 
 print(f"wrote creators({len(creators)}) comments({len(comments)}) insights({len(insights)}) "
-      f"roster({len(roster)}) decisions({len(decisions)}) controls({len(controls)})")
+      f"roster({len(roster)}) decisions({len(decisions)}) controls({len(controls)}) "
+      f"outcomes({len(outcomes)}) orders({len(orders)})")

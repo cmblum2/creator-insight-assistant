@@ -4,4 +4,5 @@ chroma_store/
 __pycache__/
 *.pyc
 data/*.csv
+data/*.json
 CLAUDE.md

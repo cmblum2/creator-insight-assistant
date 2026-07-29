@@ -24,4 +24,14 @@ CONTRACT = {
     "roster": "data/roster.csv",
     "seeding_decisions": "data/seeding_decisions.csv",
     "seeding_controls": "data/seeding_controls.csv",
+    # v3: synthetic sampling outcomes + order timeline (economics / holdout / drift / cohorts)
+    "outcomes": "data/outcomes.csv",
+    "orders": "data/orders.csv",
 }
+
+# sample-program unit economics (synthetic, but the same math the real engine uses).
+# net contribution margin = product contribution - affiliate commission; sample cost = COGS + ship.
+NET_MARGIN = 0.30
+SAMPLE_COST = 14.0
+PRODUCT_CONTRIB = 0.405
+COMMISSION_RATE = 0.105
