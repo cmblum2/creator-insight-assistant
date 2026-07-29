@@ -65,6 +65,7 @@ uvicorn app.server:api --reload     # open http://127.0.0.1:8000
 ```bash
 python -m eval.test_guardrails      # deterministic guardrail eval — free, no API key
 python -m eval.run_eval             # RAGAS harness -> eval/report.md (needs the API key)
+python -m eval.eval_sarcasm         # regex vs LLM buy-intent on a labeled sarcasm set (needs the key)
 ```
 The harness runs 18 eval questions through the graph and scores them with **RAGAS** on two axes —
 **answer quality** (faithfulness, answer-relevancy) and **retrieval quality** (context-precision,
@@ -127,6 +128,18 @@ Full per-question breakdown in [`eval/report.md`](eval/report.md).
    exact phrases that can't all fit in 8 contexts — next lever is raising `k` or tuning λ. Lesson:
    a lexical "is a relevant doc present?" check and an LLM "is the retrieved set *complete*?" check
    are different questions, and only the second one found this bug.
+7. **The buy-intent filter can't read sarcasm — and I measured exactly how badly.** The retrieval
+   buy-intent signal is a cheap regex (`app/intent.py`); it matches keywords ("add to cart", "how
+   much", "buy") literally, so a sarcastic comment like *"oh sure, let me add to cart another $40
+   brush I don't need"* is counted as genuine purchase intent. A labeled sarcasm set
+   (`eval/sarcasm_set.jsonl`, 24 comments) put a number on it: the regex flags **5 of 10 sarcastic
+   comments** as buy-intent (accuracy 79%). Fix: an LLM classifier (`app/intent_llm.py`, Claude Haiku,
+   batched, graceful no-key fallback) that reads tone — **0/10 false positives, 92% accuracy, 100%
+   sarcasm detection** (`eval/eval_sarcasm.py`, live at `/classify` and in the Copilot tab). Honest
+   scope: buy-intent density is a *soft* ranking signal — the engine's causal labels come from real
+   GMV/orders, which sarcasm can't fake — so this hardens a secondary input rather than the money math.
+   Lesson: keyword sentiment fails silently on irony; the only way to know how much is to label a set
+   and measure it.
 
 ## Architecture
 ```

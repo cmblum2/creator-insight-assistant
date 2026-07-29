@@ -24,6 +24,15 @@ def recs(product: str = "", n: int = 10):
     return recommend(product=product, n=min(max(n, 1), 50))
 
 
+@api.get("/classify")
+def classify_comment(text: str = ""):
+    """Buy-intent + sarcasm on one comment: the regex filter vs the sarcasm-aware LLM classifier,
+    side by side. The LLM adds sarcasm (falls back to regex with no API key)."""
+    from app.intent import buy_intent
+    from app.intent_llm import classify
+    return {"text": text, "regex": {"buy_intent": buy_intent(text)}, "llm": classify(text)}
+
+
 @api.get("/economics")
 def economics():
     """Unit economics: ROI, LTV/retention, size-the-prize, sensitivity — revenue turned into profit."""

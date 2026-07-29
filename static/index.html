@@ -126,6 +126,18 @@
       <div id="answer"></div>
       <div id="sources"></div>
     </div>
+    <div class="panel">
+      <h3>Comment intent — regex vs sarcasm-aware LLM</h3>
+      <p class="desc">The buy-intent filter is a cheap regex that reads keywords literally, so it counts
+        sarcasm ("let me add to cart another $40 brush I don't need") as a real buy signal. The LLM
+        classifier reads tone. Try a sarcastic comment. <b>Eval: regex mislabels 5/10 sarcastic
+        comments as intent; the LLM cuts that to 0/10, sarcasm detection 100%</b> (eval/eval_sarcasm.py).</p>
+      <div class="controls">
+        <input id="cmt" placeholder="e.g. oh great, another $40 brush my wallet is THRILLED" style="width:min(460px,90%)" />
+        <button class="go" onclick="classifyComment()">Classify</button>
+      </div>
+      <div id="cls"></div>
+    </div>
   </div>
 
   <div id="view-econ" style="display:none">
@@ -207,6 +219,24 @@ async function ask() {
   el.textContent = d.answer;
   document.getElementById("sources").textContent =
     "sources: " + [...new Set(d.sources.map(s => s.handle || s.source))].join(", ");
+}
+async function classifyComment() {
+  const el = document.getElementById("cls");
+  const text = document.getElementById("cmt").value.trim();
+  if (!text) { el.textContent = "enter a comment first."; return; }
+  el.innerHTML = "<span class='footnote'>classifying…</span>";
+  const d = await (await fetch("/classify?text=" + encodeURIComponent(text))).json();
+  const yn = v => v == null ? "—" : v ? "<b style='color:var(--accent2)'>yes</b>" : "<b style='color:var(--good)'>no</b>";
+  const llmKey = d.llm.source === "llm";
+  el.innerHTML = `<table style="max-width:520px">
+    <tr><th></th><th class="num">buy-intent?</th><th class="num">sarcastic?</th></tr>
+    <tr><td>regex filter</td><td class="num">${yn(d.regex.buy_intent)}</td><td class="num footnote">no notion</td></tr>
+    <tr><td>LLM classifier</td><td class="num">${yn(d.llm.buy_intent)}</td><td class="num">${llmKey ? yn(d.llm.sarcastic) : "<span class='footnote'>needs API key</span>"}</td></tr>
+    </table>
+    ${(!d.llm.sarcastic && d.regex.buy_intent === d.llm.buy_intent) ? "" :
+      `<div class="footnote" style="margin-top:8px">${d.llm.sarcastic
+        ? "↳ the LLM caught sarcasm the regex would count as a real buy signal."
+        : "↳ both agree here."}</div>`}`;
 }
 async function loadKPIs() {
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };

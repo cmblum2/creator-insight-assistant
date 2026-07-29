@@ -1,0 +1,24 @@
+{"text": "where can i buy this?? i need it", "buy_intent": true, "sarcastic": false, "note": "genuine intent"}
+{"text": "dropping the link please, adding to cart now", "buy_intent": true, "sarcastic": false, "note": "genuine intent"}
+{"text": "just ordered mine, so excited it finally restocked", "buy_intent": true, "sarcastic": false, "note": "genuine intent"}
+{"text": "how much is it and does it ship to canada", "buy_intent": true, "sarcastic": false, "note": "genuine intent"}
+{"text": "need this asap where is the link", "buy_intent": true, "sarcastic": false, "note": "genuine intent"}
+{"text": "adding to cart the second i get paid", "buy_intent": true, "sarcastic": false, "note": "genuine intent"}
+{"text": "oh sure let me add to cart another $40 brush i definitely need", "buy_intent": false, "sarcastic": true, "note": "sarcastic - contains 'add to cart'"}
+{"text": "how much is it? asking so i know exactly how much NOT to spend", "buy_intent": false, "sarcastic": true, "note": "sarcastic - contains 'how much'"}
+{"text": "wow cant wait to order mine... said absolutely no one", "buy_intent": false, "sarcastic": true, "note": "sarcastic - 'order mine' but negated"}
+{"text": "where do i even buy this life-changing miracle, gimme a break", "buy_intent": false, "sarcastic": true, "note": "sarcastic - contains 'buy'"}
+{"text": "just bought mine and by mine i mean the $6 dupe lmao", "buy_intent": false, "sarcastic": true, "note": "sarcastic - 'bought' but about a dupe"}
+{"text": "restock?? so i can keep NOT affording it, cool", "buy_intent": false, "sarcastic": true, "note": "sarcastic - contains 'restock'"}
+{"text": "great, ANOTHER dupe that will fall apart in a week", "buy_intent": false, "sarcastic": true, "note": "sarcastic negative"}
+{"text": "so revolutionary, a hairbrush. groundbreaking stuff", "buy_intent": false, "sarcastic": true, "note": "sarcastic negative"}
+{"text": "yeah because THAT is exactly what my hair needed", "buy_intent": false, "sarcastic": true, "note": "sarcastic negative"}
+{"text": "amazing, a $40 brush, my wallet is THRILLED", "buy_intent": false, "sarcastic": true, "note": "sarcastic negative"}
+{"text": "obsessed with this, my hair has never looked better", "buy_intent": false, "sarcastic": false, "note": "genuine praise, not intent"}
+{"text": "this literally fixed my frizz, i love it", "buy_intent": false, "sarcastic": false, "note": "genuine praise, not intent"}
+{"text": "you are glowing, what is your secret", "buy_intent": false, "sarcastic": false, "note": "genuine, not intent"}
+{"text": "great tutorial, so helpful thank you", "buy_intent": false, "sarcastic": false, "note": "genuine, not intent"}
+{"text": "what is the song in this video", "buy_intent": false, "sarcastic": false, "note": "neutral"}
+{"text": "the lighting here is beautiful", "buy_intent": false, "sarcastic": false, "note": "neutral"}
+{"text": "your dog is so cute in the background", "buy_intent": false, "sarcastic": false, "note": "neutral"}
+{"text": "first!!", "buy_intent": false, "sarcastic": false, "note": "neutral"}

@@ -4,6 +4,9 @@ ANSWER_MODEL = "claude-sonnet-5"
 # RAGAS evaluator LLM. Not claude-sonnet-5: the Claude 5 family rejects the `temperature`
 # param, and ragas sets it on the judge internally.
 JUDGE_MODEL = "claude-sonnet-4-5"
+# Cheap, fast model for the LLM buy-intent + sarcasm classifier (app/intent_llm.py). Classification
+# is easy; Haiku is plenty and keeps the sarcasm-aware pass affordable at comment scale.
+INTENT_MODEL = "claude-haiku-4-5-20251001"
 
 INGEST_CONFIG = {   # matches the synthetic files from scripts/gen_data.py
     "creators": {"path": "data/creators.csv",
