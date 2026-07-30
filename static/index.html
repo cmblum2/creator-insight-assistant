@@ -167,6 +167,10 @@
       <h3>How we prove it — the controlled test</h3>
       <div class="verdict" id="econ-holdout">loading…</div>
     </div>
+    <div class="panel">
+      <h3>Does the ranking pick winners? — recommender scorecard</h3>
+      <div class="verdict" id="rec-scorecard">loading…</div>
+    </div>
   </div>
 
 <script>
@@ -311,6 +315,21 @@ async function loadEcon() {
   } catch (e) {
     document.getElementById("econ-holdout").innerHTML =
       `<span class="footnote">Randomized holdout is designed + coded (app/experiment.py) but not yet run.</span>`;
+  }
+  try {
+    const s = await (await fetch("/recommender")).json();
+    const pk = (s.precision_at_k || []).map(x => `top ${x.k}: ${Math.round(x.precision*100)}% win · median lift ${money(x.median_lift)}`).join(" · ");
+    const cal = s.calibration || {};
+    const calStr = (cal.bins || []).map(b => `${b.rank_range} → ${money(b.mean_lift)}`).join(" · ");
+    document.getElementById("rec-scorecard").innerHTML = s.rank_ic == null
+      ? `<span class="footnote">${esc(s.note || "no outcomes")}</span>`
+      : `<b>Rank-IC ${s.rank_ic}</b> (Spearman of rank vs realized lift, n=${s.n}). ` +
+        `Base win-rate ${Math.round(s.base_win_rate*100)}%.` +
+        (pk ? `<br/><b>Precision@K:</b> ${pk}` : "") +
+        (calStr ? `<br/><b>Calibration (by rank):</b> ${calStr} — <span class="footnote">${cal.monotonic ? "monotonic ✓ — better rank, higher realized lift" : "non-monotonic"} (top−bottom ${money(cal.top_minus_bottom_lift)}).</span>` : "") +
+        `<br/><span class="footnote">${esc(s.note)}</span>`;
+  } catch (e) {
+    document.getElementById("rec-scorecard").innerHTML = `<span class="footnote">recommender scorecard unavailable</span>`;
   }
 }
 loadRecs();

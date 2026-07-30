@@ -65,6 +65,17 @@ def drift():
         raise HTTPException(503, f"drift unavailable: {str(e)[:200]}")
 
 
+@api.get("/recommender")
+def recommender():
+    """Recommender scorecard: does the ranking pick winners? rank-IC + precision@K + calibration-by-rank
+    over the synthetic outcomes."""
+    from app.recommender_eval import recommender_scorecard
+    try:
+        return recommender_scorecard()
+    except Exception as e:
+        raise HTTPException(503, f"recommender unavailable: {str(e)[:200]}")
+
+
 @api.post("/ask")
 def ask(q: Q):
     if not os.getenv("ANTHROPIC_API_KEY"):
