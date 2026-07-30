@@ -1,0 +1,19 @@
+# Build the Docker image on every push — the same build Render runs on deploy.
+# Exists because a venv-only dependency (scipy) once broke the Render build silently:
+# three deploys failed in a row and the live demo sat pinned to an old build for four
+# days. This makes that failure loud, on the commit that causes it.
+name: docker-build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (includes the data/index bake steps)
+        run: docker build -t creator-insight-assistant:ci .
