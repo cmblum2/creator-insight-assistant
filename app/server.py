@@ -65,6 +65,56 @@ def heterogeneity_endpoint():
         raise HTTPException(503, f"heterogeneity unavailable: {str(e)[:200]}")
 
 
+@api.get("/voc")
+def voc_endpoint():
+    """Voice of Customer: category mix, competitor board, price/praise themes over the comment corpus."""
+    from app.voc import voc
+    try:
+        return voc()
+    except Exception as e:
+        raise HTTPException(503, f"voc unavailable: {str(e)[:200]}")
+
+
+@api.get("/voc_actions")
+def voc_actions_endpoint():
+    """VoC -> ranked action list (validated vs qualitative)."""
+    from app.voc import action_list
+    try:
+        return action_list()
+    except Exception as e:
+        raise HTTPException(503, f"voc_actions unavailable: {str(e)[:200]}")
+
+
+@api.get("/voc_narrate")
+def voc_narrate_endpoint():
+    """LLM positioning read over the VoC boards."""
+    from app.voc import narrate
+    try:
+        return narrate()
+    except Exception as e:
+        raise HTTPException(503, f"voc narrate unavailable: {str(e)[:200]}")
+
+
+@api.get("/theme_lift")
+def theme_lift_endpoint():
+    """Themes -> conversion: comment-theme mix vs video conversion (Bonferroni)."""
+    from app.theme_lift import report
+    try:
+        return report()
+    except Exception as e:
+        raise HTTPException(503, f"theme_lift unavailable: {str(e)[:200]}")
+
+
+@api.get("/spark")
+def spark_endpoint():
+    """Spark timing: ROAS by video age at first spark + organic winners to gate."""
+    from app.spark import spark_report
+    try:
+        return spark_report()
+    except Exception as e:
+        raise HTTPException(503, f"spark unavailable: {str(e)[:200]}")
+
+
 @api.get("/classify")
 def classify_comment(text: str = ""):
     """Buy-intent + sarcasm on one comment: the regex filter vs the sarcasm-aware LLM classifier,

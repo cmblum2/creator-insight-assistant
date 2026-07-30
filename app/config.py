@@ -23,6 +23,7 @@ INGEST_CONFIG = {   # matches the synthetic files from scripts/gen_data.py
 # v2 sampling-engine contract tables (synthetic; produced by scripts/gen_data.py).
 # creator_insights also feeds the RAG corpus via a custom doc builder in app/ingest.py.
 CONTRACT = {
+    "comments": "data/comments.csv",
     "creator_insights": "data/creator_insights.csv",
     "roster": "data/roster.csv",
     "seeding_decisions": "data/seeding_decisions.csv",

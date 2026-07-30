@@ -185,7 +185,8 @@ for vn in range(1, 601):                              # v0001..v0600 (comments r
     sparked = random.random() < 0.6
     camp = f"camp{random.randint(1, NCAMP):02d}" if sparked else ""
     ad_spend = round(random.uniform(50, 3000), 0) if sparked else 0.0
-    roas = random.uniform(1.2, 4.5)
+    # sparking in the 8-14 day window pays off best (mirrors the real finding) — bump ROAS there
+    roas = random.uniform(1.2, 3.6) + (1.0 if 8 <= age <= 14 else 0.0)
     gmv = round(n_ord * random.uniform(12, 30), 2)
     videos.append({
         "video_id": vid, "creator_id": cr["creator_id"], "username": cr["handle"],
