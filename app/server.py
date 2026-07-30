@@ -35,6 +35,36 @@ def decisions():
         raise HTTPException(503, f"decision queue unavailable: {str(e)[:200]}")
 
 
+@api.get("/allocate")
+def allocate_endpoint(budget: float = 50000):
+    """Budget allocator: split a budget across paid GMV-Max vs organic sampling by marginal profit."""
+    from app.allocator import allocate
+    try:
+        return allocate(min(max(budget, 0), 100_000_000))
+    except Exception as e:
+        raise HTTPException(503, f"allocator unavailable: {str(e)[:200]}")
+
+
+@api.get("/post_funnel")
+def post_funnel():
+    """Sample -> post -> sale funnel: shipped samples, how many became content, how many sold."""
+    from app.post_rate import funnel
+    try:
+        return funnel()
+    except Exception as e:
+        raise HTTPException(503, f"post funnel unavailable: {str(e)[:200]}")
+
+
+@api.get("/heterogeneity")
+def heterogeneity_endpoint():
+    """CATE: which creator segments show the largest sampling treatment effect."""
+    from app.heterogeneity import heterogeneity
+    try:
+        return heterogeneity()
+    except Exception as e:
+        raise HTTPException(503, f"heterogeneity unavailable: {str(e)[:200]}")
+
+
 @api.get("/classify")
 def classify_comment(text: str = ""):
     """Buy-intent + sarcasm on one comment: the regex filter vs the sarcasm-aware LLM classifier,
