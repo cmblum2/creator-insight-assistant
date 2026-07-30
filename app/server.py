@@ -115,6 +115,52 @@ def spark_endpoint():
         raise HTTPException(503, f"spark unavailable: {str(e)[:200]}")
 
 
+@api.get("/scorecard")
+def scorecard_endpoint():
+    """Retrospective: sample -> sold funnel, the power law, mid-funnel diagnosis."""
+    from app.scorecard import scorecard as sc, sampling_trends, funnel_diagnosis
+    try:
+        r = sc()
+        r["trends"] = sampling_trends()
+        r["funnel_diagnosis"] = funnel_diagnosis()
+        return r
+    except Exception as e:
+        raise HTTPException(503, f"scorecard unavailable: {str(e)[:200]}")
+
+
+@api.get("/intent")
+def intent_endpoint():
+    """Portfolio buy-intent summary from the comment corpus."""
+    from app.intent_data import intent_summary
+    try:
+        return intent_summary()
+    except Exception as e:
+        raise HTTPException(503, f"intent unavailable: {str(e)[:200]}")
+
+
+@api.get("/products")
+def products_endpoint():
+    """Product options for the sampling filter dropdown."""
+    from app.products import products
+    try:
+        return products()
+    except Exception as e:
+        raise HTTPException(503, f"products unavailable: {str(e)[:200]}")
+
+
+@api.get("/corpus_stats")
+def corpus_stats():
+    """Size of the comment corpus the demo reasons over."""
+    import pandas as pd
+    from app.config import CONTRACT
+    try:
+        c = pd.read_csv(CONTRACT["comments"])
+        return {"comments": int(len(c)), "videos": int(c["video_id"].nunique()),
+                "creators": int(c["handle"].nunique())}
+    except Exception:
+        return {"comments": 0, "videos": 0, "creators": 0}
+
+
 @api.get("/classify")
 def classify_comment(text: str = ""):
     """Buy-intent + sarcasm on one comment: the regex filter vs the sarcasm-aware LLM classifier,
