@@ -14,6 +14,14 @@ INTENT = ["where can i buy this", "drop the link please", "just ordered mine",
           "need this asap", "adding to cart now", "how much is it", "restock when??"]
 NEUTRAL = ["love this", "so pretty", "great video", "obsessed", "tutorial please",
            "what's the song", "you're glowing"]
+PRICE = ["kinda pricey ngl", "$40 is steep", "wish it was cheaper", "worth the price??",
+         "too expensive for me rn"]
+COMPETITORS = ["WaveLux", "SleekPro", "CurlCraft"]           # synthetic competitor brands (100% fake)
+COMPARE = ["is this better than my {c}?", "how's it vs the {c}?", "i have the {c}, should i switch?",
+           "{c} does the same for way less", "my {c} left me frizzy, does this?"]
+PRAISE = ["my curls last all day now", "detangled my thick hair so fast", "no more heat damage",
+          "so shiny after one use", "cut my routine in half"]
+BOUGHT = ["just got mine!", "received it today obsessed", "been using it a week love it"]
 
 creators = []
 for i in range(200):
@@ -25,22 +33,34 @@ for i in range(200):
         "bio": fake.sentence(),
     })
 
+# comments carry a CATEGORY (purchase / confirmed_purchase / price / comparison / praise) so Voice-of-
+# Customer + theme-lift have real signal; some praise still names a hair concern for the RAG queries.
 comments = []
 for i in range(3000):
     cr = random.choice(creators)
     r = random.random()
-    if r < 0.30:
-        text = random.choice(INTENT)
-    elif r < 0.60:
-        text = random.choice(HAIR) + " — " + random.choice(NEUTRAL)
+    if r < 0.20:
+        text, cat = random.choice(INTENT), "purchase"
+    elif r < 0.28:
+        text, cat = random.choice(BOUGHT), "confirmed_purchase"
+    elif r < 0.36:
+        text, cat = random.choice(PRICE), "price"
+    elif r < 0.45:
+        text, cat = random.choice(COMPARE).format(c=random.choice(COMPETITORS)), "comparison"
+    elif r < 0.68:
+        text = (random.choice(HAIR) + " — " + random.choice(PRAISE)) if random.random() < 0.5 \
+            else random.choice(PRAISE)
+        cat = "praise"
     else:
-        text = random.choice(NEUTRAL)
+        text, cat = random.choice(NEUTRAL), "praise"
     comments.append({
         "comment_id": f"cm{i:05d}",
         "creator_id": cr["creator_id"],
         "handle": cr["handle"],
         "video_id": f"v{random.randint(1, 600):04d}",
         "comment_text": text,
+        "category": cat,
+        "like_count": random.randint(0, 500),
     })
 
 # ── v2: the sampling-engine contract tables ─────────────────────────────────────────────
@@ -131,13 +151,119 @@ for c in by_rank:                                   # every creator has a past-s
             cont = 0.36 if month == 0 else 0.6        # ~36% survive past month 0, then flatter
             month += 1
 
+# ── v4: warehouse-feature twins (campaigns / videos / sample-requests / creator-videos / categories) ──
+# Synthetic equivalents of the marts/staging tables the decision-queue, allocator, spark, post-funnel,
+# VoC, theme-lift, scorecard, and product-fit features read in production. Internally consistent with
+# the creators/products/comments above. 100% fake.
+from collections import Counter
+
+PRODUCT_ID = {p: f"172938{i:012d}" for i, p in enumerate(PRODUCTS)}   # synthetic TikTok product ids
+LEAF = {"Detangler Pro Brush": "Hair Brushes & Combs", "IonGlow Dryer": "Hair Dryers",
+        "SilkWave Curler": "Curlers & Straighteners", "HeatShield Spray": "Hair Care"}
+product_categories = [{"product_id": PRODUCT_ID[p], "product_name": p,
+                       "top_category": "Beauty & Personal Care", "leaf_category": LEAF[p]}
+                      for p in PRODUCTS]
+
+# per-video comment theme shares — competitor-comparison share drives conversion DOWN (mirrors the real
+# Bonferroni finding), so theme_lift shows a genuine negative association on synthetic data.
+vid_cat = defaultdict(Counter)
+for cm in comments:
+    vid_cat[cm["video_id"]][cm["category"]] += 1
+
+NCAMP = 14
+videos = []
+for vn in range(1, 601):                              # v0001..v0600 (comments reference these)
+    vid = f"v{vn:04d}"
+    cr = random.choice(creators)
+    prod = random.choice(PRODUCTS)
+    cc = vid_cat.get(vid, Counter()); tot = sum(cc.values()) or 1
+    comp_share = cc.get("comparison", 0) / tot
+    conv = max(0.002, 0.06 * (1 - 1.2 * comp_share) * random.uniform(0.5, 1.5))
+    views = random.randint(2000, 400000)
+    n_ord = int(views * conv)                         # NOT `orders` — that's the order-timeline list
+    age = random.randint(1, 120)
+    sparked = random.random() < 0.6
+    camp = f"camp{random.randint(1, NCAMP):02d}" if sparked else ""
+    ad_spend = round(random.uniform(50, 3000), 0) if sparked else 0.0
+    roas = random.uniform(1.2, 4.5)
+    gmv = round(n_ord * random.uniform(12, 30), 2)
+    videos.append({
+        "video_id": vid, "creator_id": cr["creator_id"], "username": cr["handle"],
+        "title": fake.sentence(nb_words=6), "age_days": age, "campaign_id": camp,
+        "canonical_name": prod, "views14": views, "gmv14": gmv,
+        "views_per_day": round(views / max(age, 1), 1), "gmv_per_day": round(random.uniform(0, 400), 2),
+        "ctr": round(random.uniform(0.004, 0.03), 4),
+        "ad_spend": ad_spend, "ad_gross_revenue": round(ad_spend * roas, 2),
+        "organic_gmv": gmv, "organic_views": views, "organic_sku_orders": n_ord,
+    })
+
+# campaigns — a demo-worthy verdict spread (the port derives SCALE/TUNE/CUT/RETARGET/GATE from these).
+# (name, product, target_roas, actual_roas, breakeven_roas|None=launch, daily_budget)
+CAMP_SPECS = [
+    ("AM - Detangler 3X",  "Detangler Pro Brush", 3.5, 3.9, 2.10, 3000),  # SCALE
+    ("AM - Detangler OG",  "Detangler Pro Brush", 4.0, 2.9, 2.10, 2000),  # TUNE
+    ("AM - IonGlow Flex",  "IonGlow Dryer",       3.2, 1.9, 2.70, 5000),  # CUT
+    ("AM - IonGlow Promo", "IonGlow Dryer",       2.0, 1.8, 2.74, 1500),  # RETARGET (target<be)
+    ("AM - SilkWave",      "SilkWave Curler",     2.3, 0.9, 4.48, 2000),  # RETARGET
+    ("AM - SilkWave Halo", "SilkWave Curler",     3.0, 3.1, 2.56, 2500),  # SCALE
+    ("AM - HeatShield",    "HeatShield Spray",    2.5, 2.2, 2.09, 1200),  # TUNE
+    ("AM - Spring Promo",  "Detangler Pro Brush", 3.0, 1.8, 8.50, 1500),  # GATE (be>8 not retargetable)
+    ("AM - Neon Launch",   "IonGlow Dryer",       2.5, 1.1, None, 1000),  # GATE (launch)
+    ("AM - Chrome",        "Detangler Pro Brush", 2.9, 3.3, 2.87, 3000),  # SCALE
+    ("AM - MegaCurl",      "SilkWave Curler",     2.5, 0.8, None,  800),  # GATE
+    ("AM - Smooth 3X",     "HeatShield Spray",    2.1, 1.9, 2.09, 1000),  # CUT
+    ("AM - Sparkle",       "Detangler Pro Brush", 3.0, 2.7, 3.03,  900),  # CUT
+    ("AM - Holiday Duo",   "IonGlow Dryer",       2.5, 2.6, 1.94, 2000),  # SCALE
+]
+campaigns = []
+for i, (name, prod, tgt, roas, be, bud) in enumerate(CAMP_SPECS, 1):
+    spend = round(random.uniform(3, 8) * bud, 0)
+    nvid = sum(1 for v in videos if v["campaign_id"] == f"camp{i:02d}")
+    campaigns.append({
+        "campaign_id": f"camp{i:02d}", "campaign_name": name, "status": "ENABLE", "product": prod,
+        "budget_amount": bud, "budget_mode": "BUDGET_MODE_DAY", "target_roas": tgt,
+        "spend_30d": spend, "rev_30d": round(spend * roas, 0), "roas": round(roas, 2),
+        "videos": max(nvid, random.randint(40, 300)),
+        "breakeven_roas": (be if be is not None else ""),
+        "contribution_rate": (round(1 / be, 3) if be else ""),
+    })
+
+# sample-requests — mirror the real ship->post funnel (~94% Completed, ~5% no-content)
+SR_STATUS = (["Completed"] * 90 + ["Content Unfulfilled"] * 4 + ["Content Pending"] * 2
+             + ["Shipped"] * 2 + ["Ready to Ship"] * 1)
+sample_requests = []
+for c in by_rank[3:120]:                              # ~117 sampled creators
+    for _ in range(random.randint(1, 5)):             # multiple ships -> post_rate has >=3
+        prod = random.choice(PRODUCTS)
+        sample_requests.append({
+            "sample_id": f"sr{len(sample_requests):05d}", "creator_handle": c["handle"],
+            "product_id": PRODUCT_ID[prod], "status": random.choice(SR_STATUS),
+            "shipped_time": f"2026-{random.randint(2, 7):02d}-{random.randint(1, 28):02d} 10:00:00",
+            "l_tier": f"L{random.randint(1, 4)}",
+            "creator_last_30d_gmv": round(random.uniform(0, 8000), 2)})
+
+# creator-videos — products each creator POSTS (drives post->sale + leaf product-fit)
+creator_videos = []
+for c in creators:
+    for _ in range(random.randint(0, 4)):
+        prod = random.choice(PRODUCTS)
+        creator_videos.append({
+            "creator_handle": c["handle"], "product_id": PRODUCT_ID[prod], "product_name": prod,
+            "revenue": (round(random.uniform(0, 2000), 2) if random.random() < 0.5 else 0.0),
+            "posted_date": f"2026-{random.randint(1, 7):02d}-{random.randint(1, 28):02d}"})
+
 for name, rows in [("creators", creators), ("comments", comments),
                    ("creator_insights", insights), ("roster", roster),
                    ("seeding_decisions", decisions), ("seeding_controls", controls),
-                   ("outcomes", outcomes), ("orders", orders)]:
+                   ("outcomes", outcomes), ("orders", orders),
+                   ("campaigns", campaigns), ("videos", videos),
+                   ("sample_requests", sample_requests), ("creator_videos", creator_videos),
+                   ("product_categories", product_categories)]:
     with open(f"data/{name}.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=rows[0].keys()); w.writeheader(); w.writerows(rows)
 
 print(f"wrote creators({len(creators)}) comments({len(comments)}) insights({len(insights)}) "
       f"roster({len(roster)}) decisions({len(decisions)}) controls({len(controls)}) "
-      f"outcomes({len(outcomes)}) orders({len(orders)})")
+      f"outcomes({len(outcomes)}) orders({len(orders)}) | campaigns({len(campaigns)}) "
+      f"videos({len(videos)}) sample_requests({len(sample_requests)}) "
+      f"creator_videos({len(creator_videos)}) product_categories({len(product_categories)})")

@@ -30,6 +30,12 @@ CONTRACT = {
     # v3: synthetic sampling outcomes + order timeline (economics / holdout / drift / cohorts)
     "outcomes": "data/outcomes.csv",
     "orders": "data/orders.csv",
+    # v4: warehouse-feature twins (decision queue / allocator / spark / post-funnel / voc / theme-lift)
+    "campaigns": "data/campaigns.csv",
+    "videos": "data/videos.csv",
+    "sample_requests": "data/sample_requests.csv",
+    "creator_videos": "data/creator_videos.csv",
+    "product_categories": "data/product_categories.csv",
 }
 
 # sample-program unit economics (synthetic, but the same math the real engine uses).
