@@ -24,6 +24,17 @@ def recs(product: str = "", n: int = 10):
     return recommend(product=product, n=min(max(n, 1), 50))
 
 
+@api.get("/decisions")
+def decisions():
+    """Act-today queue: one ranked list across GMV-Max campaigns (scale/cut), spark timing, and
+    sampling picks — same verdict logic as production, on synthetic data."""
+    from app.decide import decision_queue
+    try:
+        return decision_queue()
+    except Exception as e:
+        raise HTTPException(503, f"decision queue unavailable: {str(e)[:200]}")
+
+
 @api.get("/classify")
 def classify_comment(text: str = ""):
     """Buy-intent + sarcasm on one comment: the regex filter vs the sarcasm-aware LLM classifier,
