@@ -90,14 +90,63 @@
 
   <nav class="tabs">
     <span class="tabgroup">Act</span>
-    <button class="active" id="tab-recs" onclick="showTab('recs')">Sample</button>
+    <button class="active" id="tab-decisions" onclick="showTab('decisions')">Decisions</button>
+    <button id="tab-recs" onclick="showTab('recs')">Sample</button>
     <span class="tabgroup">Ask</span>
     <button id="tab-ask" onclick="showTab('ask')">Copilot</button>
+    <span class="tabgroup">Learn</span>
+    <button id="tab-voc" onclick="showTab('voc')">Voice of Customer</button>
     <span class="tabgroup">Prove</span>
     <button id="tab-econ" onclick="showTab('econ')">Economics</button>
   </nav>
 
-  <div id="view-recs">
+  <div id="view-decisions">
+    <div class="panel">
+      <h3>Decision queue — act today</h3>
+      <p class="desc">One ranked list across every signal: GMV-Max campaigns (scale/cut), spark timing,
+        and sampling picks. Verdicts are deterministic — the same logic as production, on synthetic data.</p>
+      <div style="overflow-x:auto"><table id="queue"></table></div>
+      <div class="footnote" id="queue-note"></div>
+    </div>
+    <div class="panel" style="border-left:3px solid var(--accent)">
+      <h3>Budget allocator — paid GMV Max vs organic sampling</h3>
+      <p class="desc">Enter a budget; it's split across paid campaigns and sampling by marginal
+        incremental profit — each dollar goes where its return is highest, stopping when none is profitable.</p>
+      <div class="controls"><label class="footnote">Budget $
+        <input id="alloc-budget" type="number" value="50000" step="5000" style="width:110px" /></label>
+        <button class="go" onclick="loadAllocation()">Allocate</button></div>
+      <div class="verdict" id="alloc-result">enter a budget and hit Allocate…</div>
+    </div>
+    <div class="panel">
+      <h3>Spark timing — ROAS by video age at first spark</h3>
+      <div class="verdict" id="spark-timing">loading…</div>
+    </div>
+    <div class="panel">
+      <h3>Sample → post → sale funnel</h3>
+      <div class="verdict" id="post-funnel">loading…</div>
+    </div>
+  </div>
+
+  <div id="view-voc" style="display:none">
+    <div class="panel" style="border-left:3px solid var(--accent2)">
+      <h3>Voice of Customer — actions</h3>
+      <div class="verdict" id="voc-actions">loading…</div>
+    </div>
+    <div class="panel">
+      <h3>Themes across the comment corpus</h3>
+      <div class="verdict" id="voc-boards">loading…</div>
+    </div>
+    <div class="panel">
+      <h3>Themes → conversion (what the audience says vs what sells)</h3>
+      <div class="verdict" id="theme-lift">loading…</div>
+    </div>
+    <div class="panel">
+      <h3>Buy-intent across creators</h3>
+      <div class="verdict" id="voc-intent">loading…</div>
+    </div>
+  </div>
+
+  <div id="view-recs" style="display:none">
     <div class="panel">
       <h3>Next sampling picks</h3>
       <p class="desc">Deterministic: eligible creators by ordinal rank. Filter by suggested product
@@ -171,18 +220,109 @@
       <h3>Does the ranking pick winners? — recommender scorecard</h3>
       <div class="verdict" id="rec-scorecard">loading…</div>
     </div>
+    <div class="panel">
+      <h3>Retrospective — the sample → sold funnel + the power law</h3>
+      <div class="verdict" id="retro">loading…</div>
+    </div>
+    <div class="panel">
+      <h3>Who responds most to a sample? — treatment effect by segment</h3>
+      <div class="verdict" id="cate">loading…</div>
+    </div>
   </div>
 
 <script>
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = v => v == null ? "—" : "$" + Number(v).toLocaleString(undefined, {maximumFractionDigits: 0});
-let econLoaded = false;
+let econLoaded = false, decLoaded = false, vocLoaded = false;
 function showTab(t) {
-  for (const v of ["recs", "ask", "econ"]) {
+  for (const v of ["decisions", "recs", "ask", "voc", "econ"]) {
     document.getElementById("view-" + v).style.display = t === v ? "" : "none";
     document.getElementById("tab-" + v).className = t === v ? "active" : "";
   }
   if (t === "econ" && !econLoaded) { econLoaded = true; loadEcon(); }
+  if (t === "decisions" && !decLoaded) { decLoaded = true; loadDecisions(); }
+  if (t === "voc" && !vocLoaded) { vocLoaded = true; loadVoc(); }
+}
+const vColor = a => ({"SPARK NOW":"var(--accent)","SCALE":"var(--accent)","SAMPLE":"var(--accent2)",
+  "CUT":"var(--bad)","GATE":"var(--bad)","RETARGET":"var(--accent2)","TUNE":"var(--text)",
+  "WATCH":"var(--text)","REVIVE?":"var(--text)"}[a] || "var(--muted)");
+async function loadDecisions() {
+  try {
+    const d = await (await fetch("/decisions")).json();
+    document.getElementById("queue").innerHTML =
+      `<tr><th>verdict</th><th>target</th><th>lever</th><th>why</th></tr>` +
+      d.queue.slice(0, 20).map(a => `<tr>
+        <td style="white-space:nowrap"><b style="color:${vColor(a.action)}">${esc(a.action)}</b></td>
+        <td><span style="color:var(--accent2)">${esc(a.target)}</span>${a.title?`<div class="footnote">${esc(a.title)}</div>`:""}</td>
+        <td class="footnote">${a.type==="campaign"?"GMV Max":a.type==="spark"?"spark":"sample"}</td>
+        <td style="max-width:440px">${(a.why||[]).map(w=>esc(String(w))).join("<br/>")}</td></tr>`).join("");
+    document.getElementById("queue-note").textContent = d.note + " · generated " + d.generated;
+  } catch(e){ document.getElementById("queue-note").textContent = "decision queue unavailable"; }
+  loadAllocation(); loadSpark(); loadFunnel();
+}
+async function loadAllocation() {
+  const el = document.getElementById("alloc-result");
+  el.textContent = "allocating…";
+  try {
+    const b = document.getElementById("alloc-budget").value || 50000;
+    const a = await (await fetch("/allocate?budget=" + encodeURIComponent(b))).json();
+    const paid = a.paid_gmv_max.campaigns.map(c => `${esc(c.campaign)} ${money(c["$"])}`).join(", ") || "none profitable";
+    const tiers = a.sampling.tiers.map(t => `ranks ${t.ranks}: ${t.n}`).join(" · ") || "none";
+    el.innerHTML = `<b>${money(a.allocated)}</b> of ${money(a.budget)} allocated` +
+      (a.unspent>0?` — <b style="color:var(--accent2)">${money(a.unspent)} unspent</b> (no profitable next dollar)`:"") +
+      `<br/><b style="color:var(--accent2)">Paid ${Math.round((a.split.paid_pct||0)*100)}%</b> (${money(a.paid_gmv_max.total)}): ${esc(paid)}` +
+      `<br/><b style="color:var(--accent)">Sampling ${Math.round((a.split.sampling_pct||0)*100)}%</b> (${money(a.sampling.total)}): ${a.sampling.n_samples} samples — ${esc(tiers)}` +
+      `<br/>Expected incremental profit: <b>${money(a.expected_incremental_profit)}</b>` +
+      `<br/><span class="footnote">${esc(a.assumptions.caveat)}</span>`;
+  } catch(e){ el.innerHTML = `<span class="footnote">allocator unavailable</span>`; }
+}
+async function loadSpark() {
+  try {
+    const s = await (await fetch("/spark")).json();
+    document.getElementById("spark-timing").innerHTML =
+      `<table><tr><th>video age at spark</th><th class="num">avg ROAS</th><th class="num">videos</th></tr>` +
+      s.timing.map(t=>`<tr><td>${esc(t.age_band)}</td><td class="num"><b>${t.avg_roas}×</b></td><td class="num">${t.n}</td></tr>`).join("") +
+      `</table><span class="footnote">${esc(s.note)}</span>`;
+  } catch(e){ document.getElementById("spark-timing").innerHTML = "unavailable"; }
+}
+async function loadFunnel() {
+  try {
+    const f = await (await fetch("/post_funnel")).json();
+    document.getElementById("post-funnel").innerHTML =
+      `<b>${f.shipped.toLocaleString()}</b> shipped → <b style="color:var(--accent)">${Math.round(f.post_rate*100)}%</b> became content → <b>${Math.round(f.post_to_sale_rate*100)}%</b> of those sold. ` +
+      `<span class="footnote"><b style="color:var(--bad)">${Math.round(f.wasted_spend_rate*100)}%</b> shipped but never became a video — wasted seeding spend. ${esc(f.note)}</span>`;
+  } catch(e){ document.getElementById("post-funnel").innerHTML = "unavailable"; }
+}
+async function loadVoc() {
+  try {
+    const a = await (await fetch("/voc_actions")).json();
+    document.getElementById("voc-actions").innerHTML = (a.actions||[]).map(x =>
+      `<div style="margin-bottom:6px"><b style="color:${x.tag==='validated'?'var(--accent)':'var(--accent2)'}">[${esc(x.tag)}]</b> ${esc(x.action)}</div>`).join("") +
+      `<span class="footnote">${esc(a.note||"")}</span>`;
+  } catch(e){ document.getElementById("voc-actions").innerHTML = "unavailable"; }
+  try {
+    const v = await (await fetch("/voc")).json();
+    const mix = Object.entries(v.category_mix).map(([k,val])=>`${esc(k)} ${Math.round(val*100)}%`).join(" · ");
+    const board = v.competitor_board.map(c=>`${esc(c.competitor)} (${c.mentions})`).join(" · ");
+    document.getElementById("voc-boards").innerHTML =
+      `<b>${v.total.toLocaleString()}</b> comments. Category mix: ${mix}.` +
+      `<br/><b>Competitor board:</b> ${board} — the brands your audience compares you to.` +
+      `<br/><span class="footnote">Price samples: ${(v.price.samples||[]).map(esc).join(" · ")}</span>`;
+  } catch(e){ document.getElementById("voc-boards").innerHTML = "unavailable"; }
+  try {
+    const t = await (await fetch("/theme_lift")).json();
+    const rows = (t.video_level.associations||[]).map(a =>
+      `<tr><td>${esc(a.theme)}</td><td class="num" style="color:${a.r<0?'var(--bad)':'var(--accent)'}">${a.r}</td><td class="num">${a.significant?"✓":""}</td></tr>`).join("");
+    document.getElementById("theme-lift").innerHTML =
+      `<table><tr><th>comment theme</th><th class="num">r vs conversion</th><th class="num">sig</th></tr>${rows}</table>` +
+      `<span class="footnote">${esc(t.video_level.note)}</span>`;
+  } catch(e){ document.getElementById("theme-lift").innerHTML = "unavailable"; }
+  try {
+    const i = await (await fetch("/intent")).json();
+    document.getElementById("voc-intent").innerHTML =
+      `<b>${Math.round(i.overall_density*100)}%</b> of ${i.total_comments.toLocaleString()} comments show buy-intent. ` +
+      `<span class="footnote">Top: ${i.top_creators.slice(0,5).map(c=>esc(c.handle)+" "+Math.round(c.density*100)+"%").join(" · ")}</span>`;
+  } catch(e){ document.getElementById("voc-intent").innerHTML = "unavailable"; }
 }
 async function loadRecs() {
   const p = document.getElementById("product").value.trim();
@@ -331,7 +471,24 @@ async function loadEcon() {
   } catch (e) {
     document.getElementById("rec-scorecard").innerHTML = `<span class="footnote">recommender scorecard unavailable</span>`;
   }
+  try {
+    const r = await (await fetch("/scorecard")).json();
+    document.getElementById("retro").innerHTML =
+      `<b>${r.n_samples}</b> past samples · <b style="color:var(--accent)">${Math.round(r.win_rate*100)}%</b> won · ` +
+      `<b>${money(r.total_incremental_gmv)}</b> total incremental GMV. Median sample lift ${r.median_sample_lift}, median winner ${money(r.median_winner_lift)}. ` +
+      `<br/><span class="footnote">Funnel: ${r.funnel.shipped} shipped → ${Math.round(r.funnel.post_rate*100)}% content → ${Math.round(r.funnel.post_to_sale_rate*100)}% sold. ${esc(r.note)}</span>`;
+  } catch (e) { document.getElementById("retro").innerHTML = "unavailable"; }
+  try {
+    const h = await (await fetch("/heterogeneity")).json();
+    const rows = h.segments.slice(0,6).map(s =>
+      `<tr><td>${esc(s.segment)}</td><td class="num">${s.n}</td><td class="num">${money(s.mean_lift)}</td><td class="footnote">[${s.ci90[0]!=null?money(s.ci90[0]):'—'}, ${s.ci90[1]!=null?money(s.ci90[1]):'—'}]</td></tr>`).join("");
+    document.getElementById("cate").innerHTML =
+      (h.biggest_lever?`Biggest lever: <b style="color:var(--accent)">${esc(h.biggest_lever.dimension)}</b> (${money(h.biggest_lever.high_minus_low_lift)} spread). Overall mean lift ${money(h.overall_mean_lift)}.`:"") +
+      `<table style="margin-top:6px"><tr><th>segment</th><th class="num">n</th><th class="num">mean lift</th><th>90% CI</th></tr>${rows}</table>` +
+      `<span class="footnote">${esc(h.note)}</span>`;
+  } catch (e) { document.getElementById("cate").innerHTML = "unavailable"; }
 }
+loadDecisions();
 loadRecs();
 loadKPIs();
 </script>
