@@ -148,6 +148,38 @@ def products_endpoint():
         raise HTTPException(503, f"products unavailable: {str(e)[:200]}")
 
 
+@api.get("/brief")
+def brief_endpoint(product: str = "", handle: str = ""):
+    """LLM creator brief (hook/proof/preempt/CTA) grounded in the product's top videos + comments."""
+    if not product:
+        raise HTTPException(400, "product is required")
+    from app.brief import generate_brief
+    try:
+        return generate_brief(product, handle or None)
+    except Exception as e:
+        raise HTTPException(503, f"brief unavailable: {str(e)[:200]}")
+
+
+@api.get("/explain")
+def explain_endpoint(verdict: str = "", handle: str = "", video: str = "", campaign: str = ""):
+    """Ground a decision verdict in the target's real audience comments (the 'why?' button)."""
+    from app.brief import explain
+    try:
+        return explain(verdict, handle or None, video or None, campaign or None)
+    except Exception as e:
+        raise HTTPException(503, f"explain unavailable: {str(e)[:200]}")
+
+
+@api.post("/query")
+def query_endpoint(q: Q):
+    """Agentic hybrid query — one question across comments + video content + campaign verdicts."""
+    from app.brief import query
+    try:
+        return query(q.question)
+    except Exception as e:
+        raise HTTPException(503, f"query unavailable: {str(e)[:200]}")
+
+
 @api.get("/corpus_stats")
 def corpus_stats():
     """Size of the comment corpus the demo reasons over."""

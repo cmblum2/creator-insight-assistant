@@ -44,6 +44,9 @@
   input,select,textarea,button.go { background:#0d1218; border:1px solid var(--border2); color:var(--text); padding:8px 11px; font-size:13px; border-radius:7px; }
   button.go { cursor:pointer; border-color:var(--accent); color:var(--accent); font-weight:500; }
   button.go:hover { background:var(--accent); color:var(--bg); }
+  .why-btn { background:none; border:none; color:var(--accent2); cursor:pointer; font-size:11px; padding:2px 0; margin-top:3px; text-decoration:underline; }
+  .why-btn:disabled { color:var(--muted); cursor:default; }
+  .explain-out:not(:empty) { margin-top:4px; padding:6px 8px; border-left:2px solid var(--accent2); background:#0d1218; border-radius:4px; }
   label { font-size:12px; color:var(--muted); }
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
   th { text-align:left; color:var(--muted); font-weight:500; border-bottom:1px solid var(--border2); padding:7px 8px; white-space:nowrap; }
@@ -187,6 +190,16 @@
       </div>
       <div id="cls"></div>
     </div>
+    <div class="panel">
+      <h3>Creator brief — grounded in videos + comments</h3>
+      <p class="desc">LLM brief (hook / proof / preempt / CTA) grounded in a product's top videos +
+        audience comments, preempting the top competitor. (Needs the API key — live on the deploy.)</p>
+      <div class="controls">
+        <input id="brief-product" placeholder="product (e.g. Detangler)" style="width:220px" />
+        <button class="go" onclick="loadBrief()">Generate brief</button>
+      </div>
+      <div class="verdict" id="brief-out"></div>
+    </div>
   </div>
 
   <div id="view-econ" style="display:none">
@@ -255,10 +268,35 @@ async function loadDecisions() {
         <td style="white-space:nowrap"><b style="color:${vColor(a.action)}">${esc(a.action)}</b></td>
         <td><span style="color:var(--accent2)">${esc(a.target)}</span>${a.title?`<div class="footnote">${esc(a.title)}</div>`:""}</td>
         <td class="footnote">${a.type==="campaign"?"GMV Max":a.type==="spark"?"spark":"sample"}</td>
-        <td style="max-width:440px">${(a.why||[]).map(w=>esc(String(w))).join("<br/>")}</td></tr>`).join("");
+        <td style="max-width:440px">${(a.why||[]).map(w=>esc(String(w))).join("<br/>")}
+          <div><button class="why-btn" onclick='explainRow(this,${JSON.stringify(a.action)},${JSON.stringify(a.target)})'>why? (grounded in comments)</button>
+          <div class="explain-out footnote"></div></div></td></tr>`).join("");
     document.getElementById("queue-note").textContent = d.note + " · generated " + d.generated;
   } catch(e){ document.getElementById("queue-note").textContent = "decision queue unavailable"; }
   loadAllocation(); loadSpark(); loadFunnel();
+}
+async function explainRow(btn, verdict, target) {
+  const out = btn.parentElement.querySelector(".explain-out");
+  out.textContent = "grounding…"; btn.disabled = true;
+  try {
+    const url = "/explain?verdict=" + encodeURIComponent(verdict) + "&handle=" + encodeURIComponent(target);
+    const e = await (await fetch(url)).json();
+    out.innerHTML = e.answer ? esc(e.answer) : `<i>${esc(e.note || "unavailable")}</i>`;
+  } catch(err) { out.textContent = "explain unavailable"; }
+  btn.disabled = false;
+}
+async function loadBrief() {
+  const el = document.getElementById("brief-out");
+  const p = document.getElementById("brief-product").value.trim();
+  if (!p) { el.textContent = "enter a product (e.g. Detangler)"; return; }
+  el.textContent = "generating brief…";
+  try {
+    const b = await (await fetch("/brief?product=" + encodeURIComponent(p))).json();
+    el.innerHTML = b.brief
+      ? `<div style="white-space:pre-wrap">${esc(b.brief)}</div>`
+        + `<div class="footnote" style="margin-top:8px">Grounded in ${(b.grounding&&b.grounding.captions||[]).length} winning captions${b.grounding&&b.grounding.competitor?", preempting "+esc(b.grounding.competitor):""}.</div>`
+      : `<span class="footnote">${esc(b.note || "unavailable")}</span>`;
+  } catch(e){ el.innerHTML = `<span class="footnote">brief unavailable</span>`; }
 }
 async function loadAllocation() {
   const el = document.getElementById("alloc-result");
