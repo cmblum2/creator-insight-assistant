@@ -8,6 +8,12 @@ anthropic
 fastapi
 uvicorn[standard]
 pandas
+# numpy/pydantic arrive transitively (pandas/fastapi) but are imported directly — pin explicitly.
+numpy
+pydantic
+# scipy is imported by app/drift.py + app/experiment.py; it was venv-only, which broke the
+# Docker build's drift_report() step on Render and left the live demo stuck on the v2 deploy.
+scipy
 faker
 # ragas 0.4.x is incompatible with the langchain 0.3.x line (and 1.x removed modules it imports);
 # 0.2.15 + langchain 0.3.x is the known-good combo.
