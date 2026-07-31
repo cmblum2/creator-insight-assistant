@@ -1,6 +1,8 @@
 import os
+from datetime import date
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from app.graph import APP
@@ -178,6 +180,31 @@ def query_endpoint(q: Q):
         return query(q.question)
     except Exception as e:
         raise HTTPException(503, f"query unavailable: {str(e)[:200]}")
+
+
+@api.get("/report", response_class=HTMLResponse)
+def report_html(budget: float = 50000):
+    """The weekly agency report as a printable web page (also the print-preview for the PDF)."""
+    from app.report import build_report_html
+    try:
+        html = build_report_html(min(max(budget, 0), 100_000_000))
+    except Exception as e:
+        raise HTTPException(503, f"report unavailable: {str(e)[:200]}")
+    # no-cache so the shell always matches the current endpoints/data
+    return HTMLResponse(html, headers={"Cache-Control": "no-store, must-revalidate"})
+
+
+@api.get("/report.pdf")
+def report_pdf(budget: float = 50000):
+    """Same report printed to PDF via installed Chrome/Chromium. Falls back to a clear 503 with
+    guidance if no browser is available (use /report and print from the browser instead)."""
+    from app.report import build_report_pdf
+    try:
+        path = build_report_pdf(min(max(budget, 0), 100_000_000))
+    except Exception as e:
+        raise HTTPException(503, f"PDF unavailable: {str(e)[:200]}")
+    return FileResponse(str(path), media_type="application/pdf",
+                        filename=f"agency-report-{date.today().isoformat()}.pdf")
 
 
 @api.get("/corpus_stats")

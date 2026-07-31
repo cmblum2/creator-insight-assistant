@@ -2,10 +2,13 @@
 Shaped so queries like 'which creators mention dry hair?' and 'comments with buy-intent'
 return real results. 100% fake — safe to publish."""
 import csv, random, os
+from datetime import date, timedelta
 from faker import Faker
 
 fake = Faker(); Faker.seed(7); random.seed(7)
 os.makedirs("data", exist_ok=True)
+
+TODAY = date(2026, 7, 30)   # fixed "as of" so the weekly report is reproducible
 
 CATS = ["hair care", "beauty", "lifestyle", "fitness"]
 HAIR = ["dry damaged hair", "frizzy hair", "curly routine", "heat damage",
@@ -61,6 +64,9 @@ for i in range(3000):
         "comment_text": text,
         "category": cat,
         "like_count": random.randint(0, 500),
+        # scrape date, weighted toward recent (triangular, mode ~3d ago) so a "themes of the
+        # last N days" view has genuine recency to filter on. 100% synthetic.
+        "scraped_at": (TODAY - timedelta(days=int(random.triangular(0, 27, 3)))).isoformat(),
     })
 
 # ── v2: the sampling-engine contract tables ─────────────────────────────────────────────
@@ -253,13 +259,29 @@ for c in creators:
             "revenue": (round(random.uniform(0, 2000), 2) if random.random() < 0.5 else 0.0),
             "posted_date": f"2026-{random.randint(1, 7):02d}-{random.randint(1, 28):02d}"})
 
+# ── v5: monthly trend series for the weekly agency report's "trend desk" ────────────────────
+# A synthetic sample-program monthly cohort series. `samples` is a VOLUME metric (known
+# immediately); gmv/profit/win_rate are OUTCOME metrics that LAG ~40 days to attribute, so the
+# two most recent months read blank (immature) as of TODAY. The report trims those trailing
+# months for lagged metrics only (marking them †) so a false $0 can't poison the trend — the
+# maturation-trimming case the report is built to handle. Earlier months trend up genuinely.
+monthly_trends = [
+    {"month": "2026-01", "samples": 38, "gmv": 4200, "profit": 1260, "win_rate": 0.24},
+    {"month": "2026-02", "samples": 41, "gmv": 5100, "profit": 1580, "win_rate": 0.27},
+    {"month": "2026-03", "samples": 44, "gmv": 6350, "profit": 2010, "win_rate": 0.29},
+    {"month": "2026-04", "samples": 47, "gmv": 7200, "profit": 2360, "win_rate": 0.31},
+    {"month": "2026-05", "samples": 52, "gmv": 8600, "profit": 2890, "win_rate": 0.33},
+    {"month": "2026-06", "samples": 49, "gmv": "", "profit": "", "win_rate": ""},   # immature
+    {"month": "2026-07", "samples": 55, "gmv": "", "profit": "", "win_rate": ""},   # immature
+]
+
 for name, rows in [("creators", creators), ("comments", comments),
                    ("creator_insights", insights), ("roster", roster),
                    ("seeding_decisions", decisions), ("seeding_controls", controls),
                    ("outcomes", outcomes), ("orders", orders),
                    ("campaigns", campaigns), ("videos", videos),
                    ("sample_requests", sample_requests), ("creator_videos", creator_videos),
-                   ("product_categories", product_categories)]:
+                   ("product_categories", product_categories), ("monthly_trends", monthly_trends)]:
     with open(f"data/{name}.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=rows[0].keys()); w.writeheader(); w.writerows(rows)
 
@@ -267,4 +289,5 @@ print(f"wrote creators({len(creators)}) comments({len(comments)}) insights({len(
       f"roster({len(roster)}) decisions({len(decisions)}) controls({len(controls)}) "
       f"outcomes({len(outcomes)}) orders({len(orders)}) | campaigns({len(campaigns)}) "
       f"videos({len(videos)}) sample_requests({len(sample_requests)}) "
-      f"creator_videos({len(creator_videos)}) product_categories({len(product_categories)})")
+      f"creator_videos({len(creator_videos)}) product_categories({len(product_categories)}) "
+      f"monthly_trends({len(monthly_trends)})")

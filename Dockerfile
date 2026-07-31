@@ -1,5 +1,10 @@
 FROM python:3.12-slim
 WORKDIR /app
+# chromium + fonts so /report.pdf can render headless on the server (installed-browser --print-to-pdf,
+# no python PDF deps). The report's HTML page (/report) works without it; this just enables one-click PDF.
+RUN apt-get update && apt-get install -y --no-install-recommends chromium fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+ENV CHROME_PATH=/usr/bin/chromium
 # COPY and RUN are separate instructions. Copy requirements first so the pip layer caches.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

@@ -37,6 +37,8 @@ CONTRACT = {
     "sample_requests": "data/sample_requests.csv",
     "creator_videos": "data/creator_videos.csv",
     "product_categories": "data/product_categories.csv",
+    # v5: monthly cohort series for the weekly agency report's trend desk
+    "monthly_trends": "data/monthly_trends.csv",
 }
 
 # sample-program unit economics (synthetic, but the same math the real engine uses).
