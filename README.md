@@ -3,6 +3,8 @@
 **Live demo: https://creator-insight-assistant.onrender.com** *(free tier — first request
 after idle takes ~30s to wake)*
 
+🌐 Part of my portfolio → **[cmblum2.github.io/camryn-portfolio](https://cmblum2.github.io/camryn-portfolio/)**
+
 A creator-sampling intelligence engine: **who should get product next, why, and whether it makes
 money** — deterministic ordinal-ranked recommendations with encoded guardrails, grounded cited RAG
 answers, and a full **unit-economics layer** (ROI, LTV, a controlled-test readout, and drift
