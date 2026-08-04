@@ -1,3 +1,4 @@
+import functools
 import os
 from datetime import date
 
@@ -229,17 +230,26 @@ def report_pdf(budget: float = 50000):
                         filename=f"agency-report-{date.today().isoformat()}.pdf")
 
 
-@api.get("/corpus_stats")
-def corpus_stats():
-    """Size of the comment corpus the demo reasons over."""
+@functools.lru_cache(maxsize=1)
+def _corpus_stats():
+    """Cached: a full-corpus scan per request added latency for a value that only changes on rebuild.
+    `unanswered` = high buy-intent comments (purchase/confirmed_purchase) — the synthetic stand-in for
+    'buyer questions sitting unanswered', powers the Customer-voice tab's attention dot."""
     import pandas as pd
     from app.config import CONTRACT
     try:
         c = pd.read_csv(CONTRACT["comments"])
+        unanswered = int(c["category"].isin(["purchase", "confirmed_purchase"]).sum()) if "category" in c else 0
         return {"comments": int(len(c)), "videos": int(c["video_id"].nunique()),
-                "creators": int(c["handle"].nunique())}
+                "creators": int(c["handle"].nunique()), "unanswered": unanswered}
     except Exception:
-        return {"comments": 0, "videos": 0, "creators": 0}
+        return {"comments": 0, "videos": 0, "creators": 0, "unanswered": 0}
+
+
+@api.get("/corpus_stats")
+def corpus_stats():
+    """Size of the comment corpus the demo reasons over (+ unanswered high-intent count)."""
+    return _corpus_stats()
 
 
 @api.get("/classify")

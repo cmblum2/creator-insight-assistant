@@ -5,14 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Creator Insight Assistant</title>
 <style>
-  :root { --bg:#0a0d10; --panel:#12161c; --panel2:#161b22; --raised:#1a2029;
+  :root { --bg:#0a0d10; --panel:#12161c; --panel2:#161b22; --raised:#1a2029; --inset:#0d1218;
           --border:#232b35; --border2:#2e3947; --text:#e6ebf0; --muted:#8b97a4; --faint:#5b6672;
           --accent:#38bdf8; --accent2:#f472b6; --good:#34d399; --bad:#f87171; --warn:#fbbf24;
-          --mono:ui-monospace,"SF Mono",Consolas,monospace; }
+          --mono:ui-monospace,"SF Mono",Consolas,monospace;
+          --shadow:0 6px 22px -12px rgba(0,0,0,.7); --ease:cubic-bezier(.23,1,.32,1); }
+  /* Type scale (floor 11.5px): xs 11.5 · sm 12.5 · base 14 · lg 15.5 · xl 23 · kpi 28 mono.
+     Inter var not self-hosted — no offline woff2 in repo + strict CSP blocks CDN fonts on the deploy;
+     the system-ui stack + a raised floor gives the same readability without a broken/remote font. */
   * { box-sizing:border-box; }
   body { background:radial-gradient(1100px 520px at 50% -220px, #131c27 0%, var(--bg) 62%) fixed;
-         color:var(--text); font:14px/1.55 system-ui,-apple-system,sans-serif;
-         max-width:1180px; margin:0 auto; padding:26px 22px 90px; }
+         color:var(--text); font:14px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+         max-width:1180px; margin:0 auto; padding:26px 22px 90px;
+         font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; }
+  @media (prefers-reduced-motion:no-preference){
+    .tabs button,button,.chip,.daily-step,.hchip{ transition:background .15s var(--ease),color .15s var(--ease),
+      border-color .15s var(--ease),transform .12s var(--ease),box-shadow .15s var(--ease); }
+  }
+  button:active{ transform:scale(.97); }
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
   .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:22px; }
   h1 { font-size:22px; font-weight:650; margin:3px 0 0; letter-spacing:-.01em; }
   .overline { color:var(--accent); font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; font-weight:600; }
@@ -70,6 +81,106 @@
   textarea { width:100%; height:64px; }
   .verdict { border-left:3px solid var(--accent); padding:2px 0 2px 11px; color:var(--muted); font-size:12.5px; margin:0 0 12px; }
   .verdict b { color:var(--text); }
+
+  /* ── restyle: sticky command bar ── */
+  .tabs { position:sticky; top:0; z-index:30; background:linear-gradient(180deg,var(--bg) 78%,transparent);
+          backdrop-filter:blur(4px); padding-top:10px; }
+  .tabs button { position:relative; font-size:13px; }
+  .tabs button.active { box-shadow:0 3px 12px -6px var(--accent); }
+  .iwant { margin-left:auto; }
+  .iwant select { font-size:12px; padding:6px 9px; }
+  /* attention dot on a tab that needs a human */
+  .tabs button .adot { position:absolute; top:3px; right:3px; width:6px; height:6px; border-radius:50%;
+    background:var(--warn); box-shadow:0 0 7px var(--warn); }
+  .tabs button.active .adot { display:none; }
+
+  /* ── restyle: filled buttons ── */
+  button.go { cursor:pointer; background:var(--accent); border:1px solid var(--accent); color:#04212e; font-weight:600; }
+  button.go:hover { filter:brightness(1.08); background:var(--accent); color:#04212e; }
+  button.ghost { background:var(--raised); border:1px solid var(--border2); color:var(--text); cursor:pointer;
+    padding:7px 12px; font-size:12.5px; border-radius:7px; }
+  button.ghost:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* ── ONE chip component (verdict / tier / status) ── */
+  .chip { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; line-height:1;
+    padding:3px 9px 3px 8px; border-radius:999px; white-space:nowrap; vertical-align:middle;
+    color:var(--c,var(--muted)); background:color-mix(in srgb,var(--c,var(--muted)) 15%,transparent);
+    border:1px solid color-mix(in srgb,var(--c,var(--muted)) 40%,transparent); }
+  .chip::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--c,var(--muted)); flex:none; }
+  .chip.good{--c:var(--good);} .chip.bad{--c:var(--bad);} .chip.warn{--c:var(--warn);}
+  .chip.accent{--c:var(--accent);} .chip.pink{--c:var(--accent2);} .chip.mute{--c:var(--muted);}
+  .chip.copy { cursor:pointer; font-family:var(--mono); }
+  .chip.copy:hover { filter:brightness(1.15); border-color:color-mix(in srgb,var(--c,var(--accent)) 70%,transparent); }
+  .chip.copied { --c:var(--good); }
+
+  /* ── skeleton shimmer ── */
+  .skel { display:block; height:11px; border-radius:5px; margin:8px 0; background:
+    linear-gradient(90deg,var(--panel2) 25%,var(--raised) 37%,var(--panel2) 63%); background-size:400% 100%; }
+  @media (prefers-reduced-motion:no-preference){ .skel{ animation:sh 1.3s ease infinite; } }
+  @keyframes sh { 0%{background-position:100% 0} 100%{background-position:0 0} }
+
+  /* ── readability: header memo, tab intros, method fold ── */
+  .memo { color:var(--faint); font-size:11.5px; margin:9px 0 0; max-width:760px; line-height:1.5; }
+  .memo b { color:var(--muted); }
+  .intro { color:var(--muted); font-size:12.5px; margin:0 0 14px; padding:9px 13px; background:var(--panel);
+    border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:9px; }
+  .intro b { color:var(--text); }
+  .usewhen { color:var(--faint); font-size:10.5px; letter-spacing:.03em; text-transform:uppercase; margin:0 0 8px; font-weight:600; }
+  details.method { margin-top:8px; }
+  details.method summary { color:var(--accent); font-size:11.5px; }
+  details.method[open] summary { margin-bottom:6px; }
+  details.fold > summary { color:var(--accent); font-size:12px; margin-top:4px; }
+  .qmark { cursor:pointer; border:1px solid var(--border2); background:var(--raised); color:var(--muted);
+    width:24px; height:24px; border-radius:50%; font-weight:700; font-size:13px; }
+  .qmark:hover { color:var(--accent); border-color:var(--accent); }
+  dialog.glossary { background:var(--panel); color:var(--text); border:1px solid var(--border2); border-radius:14px;
+    max-width:560px; width:92%; padding:20px 22px; box-shadow:var(--shadow); }
+  dialog.glossary::backdrop { background:rgba(4,8,12,.62); backdrop-filter:blur(2px); }
+  dialog.glossary h3 { margin:0 0 10px; font-size:15.5px; }
+  dialog.glossary .gterm { margin:0 0 9px; font-size:12.5px; line-height:1.45; }
+  dialog.glossary .gterm b { color:var(--accent); }
+  dialog.glossary .gclose { float:right; }
+
+  /* ── daily 10 minutes ── */
+  .daily { background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--border2);
+    border-radius:13px; padding:15px 17px; margin-bottom:22px; box-shadow:var(--shadow); }
+  .daily.flash { animation:flash .9s var(--ease); }
+  @keyframes flash { 0%{box-shadow:0 0 0 2px var(--accent)} 100%{box-shadow:var(--shadow)} }
+  .daily h2 { font-size:15.5px; margin:0 0 3px; font-weight:650; }
+  .daily .dsub { color:var(--muted); font-size:12px; margin:0 0 12px; }
+  .daily-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .daily-step { text-align:left; background:var(--inset); border:1px solid var(--border); border-radius:10px;
+    padding:11px 12px; cursor:pointer; color:var(--text); }
+  .daily-step:hover { border-color:var(--accent); transform:translateY(-1px); }
+  .daily-step .dnum { font:600 22px/1 var(--mono); color:var(--accent); }
+  .daily-step.done .dnum { color:var(--good); font-size:18px; }
+  .daily-step .dlabel { font-size:12px; font-weight:600; margin:6px 0 2px; }
+  .daily-step .dwhat { color:var(--muted); font-size:10.5px; line-height:1.35; }
+  @media (max-width:760px){ .daily-steps{ grid-template-columns:repeat(2,1fr); } }
+
+  /* ── samples-in-flight radar ── */
+  .radar-legend { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .lane { display:grid; grid-template-columns:56px 1fr; gap:10px; align-items:center; margin:5px 0; }
+  .lane .wk { font:11px var(--mono); color:var(--muted); }
+  .lane .track { display:flex; height:15px; background:var(--inset); border-radius:5px; overflow:hidden; }
+  .seg { min-width:7px; margin-right:2px; border-radius:3px; }
+  .seg.sold{background:var(--good);} .seg.posted{background:var(--accent);}
+  .seg.waiting{background:var(--faint);} .seg.cold{background:var(--bad);opacity:.85;}
+  .strip { margin-top:12px; padding:10px 12px; border-radius:9px; }
+  .strip.nudge { background:color-mix(in srgb,var(--bad) 10%,transparent); border:1px solid color-mix(in srgb,var(--bad) 30%,transparent); }
+  .strip.sold { background:color-mix(in srgb,var(--good) 10%,transparent); border:1px solid color-mix(in srgb,var(--good) 30%,transparent); }
+  .strip .stitle { font-size:11.5px; font-weight:600; margin-bottom:7px; }
+  .chips-wrap { display:flex; gap:6px; flex-wrap:wrap; }
+
+  /* ── subtractive: simple columns + tour ── */
+  table.simplecols .xcol { display:none; }
+  .coltoggle { background:none; border:none; color:var(--accent); font-size:11px; cursor:pointer; padding:4px 0; }
+  .tour { position:fixed; right:20px; bottom:20px; z-index:60; width:300px; background:var(--panel);
+    border:1px solid var(--border2); border-radius:13px; padding:15px 17px; box-shadow:var(--shadow); }
+  .tour h4 { margin:0 0 6px; font-size:13.5px; }
+  .tour p { color:var(--muted); font-size:12px; margin:0 0 11px; line-height:1.5; }
+  .tour .trow { display:flex; justify-content:space-between; align-items:center; }
+  .tour .tstep { color:var(--faint); font-size:11px; }
 </style>
 </head>
 <body>
@@ -80,44 +191,90 @@
       <div class="sub">Who to send product to next, why, and whether it makes money — grounded answers
         with citations over 100% synthetic creator, comment, and outcome data. Ordinal ranks only;
         matched controls protected; already-seeded excluded.</div>
+      <div class="memo"><b>Pipeline:</b> synthetic comments + outcomes → <b>Training:</b> the ranker
+        learns from realized, refund-adjusted lift → <b>Learning loop:</b> re-ranked each cycle over a
+        growing outcome set → <b>Verdicts:</b> campaign scale/cut + spark timing from ROAS vs breakeven →
+        <b>Monitoring:</b> holdout lift + drift PSI. Recommendations only — no automated spend.</div>
     </div>
     <div class="topbar-right">
       <button class="report-btn" onclick="window.open('/report.pdf','_blank')"
         title="Generates a printable weekly report (~15–30s live). Opens the PDF in a new tab.">⬇ Agency report (PDF)</button>
       <a class="report-link" href="/report" target="_blank">view as page</a>
-      <div class="health" id="health"><span class="dot accent"></span>synthetic data</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="health" id="health"><span class="dot accent"></span>synthetic data</div>
+        <button class="qmark" onclick="document.getElementById('glossary').showModal()" title="What do these terms mean?">?</button>
+      </div>
+    </div>
+  </div>
+
+  <dialog class="glossary" id="glossary" onclick="if(event.target===this)this.close()">
+    <button class="ghost gclose" onclick="this.closest('dialog').close()">close</button>
+    <h3>Plain-English glossary</h3>
+    <div id="glossary-body"></div>
+  </dialog>
+
+  <div class="daily" id="daily">
+    <h2>Your daily 10 minutes</h2>
+    <div class="dsub">The four things worth checking today. Click one to jump straight to it — a ✓ means skip it.</div>
+    <div class="daily-steps" id="daily-steps">
+      <div class="daily-step" onclick="showTab('recs')"><div class="dnum">–</div>
+        <div class="dlabel">Nudge cold creators</div><div class="dwhat">shipped a sample, gone quiet</div></div>
+      <div class="daily-step" onclick="showTab('decisions')"><div class="dnum">–</div>
+        <div class="dlabel">Make campaign changes</div><div class="dwhat">campaigns needing a settings change</div></div>
+      <div class="daily-step" onclick="showTab('recs')"><div class="dnum">–</div>
+        <div class="dlabel">Ship strong picks</div><div class="dwhat">high-confidence creators to sample</div></div>
+      <div class="daily-step" onclick="showTab('decisions')"><div class="dnum">–</div>
+        <div class="dlabel">Place boosts</div><div class="dwhat">videos in the spark window</div></div>
     </div>
   </div>
 
   <div class="sectlabel">At a glance</div>
   <div class="kpis" id="kpis">
-    <div class="kpi accent"><div class="label">Portfolio ROI</div><div class="value" id="kpi-roi">—</div>
-      <div class="sub">incremental profit ÷ sample spend</div></div>
-    <div class="kpi good"><div class="label">Incremental profit</div><div class="value" id="kpi-profit">—</div>
+    <div class="kpi accent" title="Return on sampling: incremental profit divided by sample spend (blended ROI). Above 1× means the program makes money overall.">
+      <div class="label">Return on sampling <i style="font-style:italic;color:var(--faint)">blended ROI</i></div>
+      <div class="value" id="kpi-roi">—</div><div class="sub">incremental profit ÷ sample spend</div></div>
+    <div class="kpi good" title="Extra profit caused by sampling, above what creators would have sold anyway — measured on the labeled, refund-adjusted cohort.">
+      <div class="label">Incremental profit</div><div class="value" id="kpi-profit">—</div>
       <div class="sub">labeled cohort, refund-adjusted</div></div>
-    <div class="kpi warn"><div class="label">Hit rate</div><div class="value" id="kpi-hit">—</div>
+    <div class="kpi warn" title="Share of samples that turned ROI-positive. The median sample loses money; the ranker's whole job is lifting this number.">
+      <div class="label">Hit rate</div><div class="value" id="kpi-hit">—</div>
       <div class="sub">samples ROI-positive — the model's job is raising this</div></div>
-    <div class="kpi"><div class="label">Causal skill</div><div class="value" id="kpi-skill">—</div>
-      <div class="sub">rank → lift (Spearman; negative = skill)</div></div>
-    <div class="kpi pink"><div class="label">Holdout lift</div><div class="value" id="kpi-holdout">—</div>
+    <div class="kpi" title="Rank-IC: how well the ranking order matches realized lift (Spearman). Negative here means the ranker puts winners on top.">
+      <div class="label">Ranker skill <i style="font-style:italic;color:var(--faint)">rank-IC</i></div>
+      <div class="value" id="kpi-skill">—</div><div class="sub">rank → lift (Spearman; negative = skill)</div></div>
+    <div class="kpi pink" title="Controlled test: how much more the engine's picks earn per sample vs. the status quo.">
+      <div class="label">Holdout lift</div><div class="value" id="kpi-holdout">—</div>
       <div class="sub">engine picks vs status quo, per sample</div></div>
   </div>
 
   <nav class="tabs">
     <span class="tabgroup">Act</span>
-    <button class="active" id="tab-decisions" onclick="showTab('decisions')">Decisions</button>
-    <button id="tab-recs" onclick="showTab('recs')">Sample</button>
+    <button class="active" id="tab-decisions" onclick="showTab('decisions')" title="Decisions">Campaigns &amp; timing</button>
+    <button id="tab-recs" onclick="showTab('recs')" title="Sample">Who to sample</button>
     <span class="tabgroup">Ask</span>
-    <button id="tab-ask" onclick="showTab('ask')">Copilot</button>
+    <button id="tab-ask" onclick="showTab('ask')" title="Copilot">Ask the engine</button>
     <span class="tabgroup">Learn</span>
-    <button id="tab-voc" onclick="showTab('voc')">Voice of Customer</button>
+    <button id="tab-voc" onclick="showTab('voc')" title="Voice of Customer">Customer voice</button>
     <span class="tabgroup">Prove</span>
-    <button id="tab-econ" onclick="showTab('econ')">Economics</button>
+    <button id="tab-econ" onclick="showTab('econ')" title="Economics">Proof &amp; money</button>
+    <span class="iwant"><label class="footnote">I want to…
+      <select id="iwant-sel" onchange="iwant(this.value)">
+        <option value="">jump to a task…</option>
+        <option value="recs">ship samples this week</option>
+        <option value="decisions">fix a losing campaign</option>
+        <option value="decisions">boost a video</option>
+        <option value="voc">read customer sentiment</option>
+        <option value="econ">check the ROI proof</option>
+        <option value="ask">ask a question</option>
+      </select></label></span>
   </nav>
 
   <div id="view-decisions">
+    <div class="intro" id="intro-decisions"><b>Start here each morning.</b> One ranked to-do list across
+      campaigns, spark timing, and sampling — each row tells you the exact change to make and why.</div>
     <div class="panel">
       <h3>Decision queue — act today</h3>
+      <div class="usewhen">Use when: planning today's campaign + sampling moves</div>
       <p class="desc">One ranked list across every signal: GMV-Max campaigns (scale/cut), spark timing,
         and sampling picks. Verdicts are deterministic — the same logic as production, on synthetic data.</p>
       <div style="overflow-x:auto"><table id="queue"></table></div>
@@ -143,8 +300,11 @@
   </div>
 
   <div id="view-voc" style="display:none">
+    <div class="intro" id="intro-voc"><b>What buyers are actually saying.</b> Validated signals change the
+      ranking; the rest brief your team. Watch for competitor comparisons — they predict lower conversion.</div>
     <div class="panel" style="border-left:3px solid var(--accent2)">
       <h3>Voice of Customer — actions</h3>
+      <div class="usewhen">Use when: deciding positioning or which objection to address</div>
       <div class="verdict" id="voc-actions">loading…</div>
     </div>
     <div class="panel">
@@ -162,6 +322,14 @@
   </div>
 
   <div id="view-recs" style="display:none">
+    <div class="intro" id="intro-recs"><b>Two jobs here:</b> chase the samples already in flight (below),
+      then queue the next strong picks. The radar shows which shipped samples are working and which have gone quiet.</div>
+    <div class="panel">
+      <h3>Samples in flight — the shepherding radar</h3>
+      <div class="usewhen">Use when: following up on samples you've already shipped</div>
+      <p class="desc">Every sample shipped in the last 60 days, by state. Click any handle to copy it.</p>
+      <div id="inflight">loading…</div>
+    </div>
     <div class="panel">
       <h3>Next sampling picks</h3>
       <p class="desc">Deterministic: eligible creators by ordinal rank. Filter by suggested product
@@ -172,12 +340,15 @@
         <button class="go" onclick="loadRecs()">Refresh</button>
       </div>
       <div class="verdict" id="verdict">loading…</div>
-      <div style="overflow-x:auto"><table id="recs"></table></div>
+      <div style="overflow-x:auto"><table id="recs" class="simplecols"></table></div>
+      <button class="coltoggle" id="recs-coltoggle" onclick="toggleCols()">+ show all columns</button>
       <div class="footnote" id="excl"></div>
     </div>
   </div>
 
   <div id="view-ask" style="display:none">
+    <div class="intro" id="intro-ask"><b>Ask in plain English.</b> Answers come only from retrieved
+      comments, with citations — plus a creator-brief generator and a sarcasm-aware intent classifier.</div>
     <div class="panel">
       <h3>Ask the assistant</h3>
       <p class="desc">Free-text questions, answered only from retrieved evidence, with citations.
@@ -215,6 +386,8 @@
   </div>
 
   <div id="view-econ" style="display:none">
+    <div class="intro" id="intro-econ"><b>The proof it works.</b> Every claim here is measured against
+      matched controls, not before/after — this is the section a skeptic checks. Skip freely if you trust the calls.</div>
     <div class="panel">
       <h3>Unit economics — does a sample make money?</h3>
       <p class="desc">Revenue turned into profit. Incremental GMV is refund-adjusted; net margin = 40.5%
@@ -267,6 +440,7 @@ function showTab(t) {
   if (t === "econ" && !econLoaded) { econLoaded = true; loadEcon(); }
   if (t === "decisions" && !decLoaded) { decLoaded = true; loadDecisions(); }
   if (t === "voc" && !vocLoaded) { vocLoaded = true; loadVoc(); }
+  if (t === "recs" && !inflightLoaded) { inflightLoaded = true; loadInflight(); }
 }
 const vColor = a => ({"SPARK NOW":"var(--accent)","SCALE":"var(--accent)","SAMPLE":"var(--accent2)",
   "CUT":"var(--bad)","GATE":"var(--bad)","RETARGET":"var(--accent2)","TUNE":"var(--text)",
@@ -277,7 +451,7 @@ async function loadDecisions() {
     document.getElementById("queue").innerHTML =
       `<tr><th>verdict</th><th>target</th><th>lever</th><th>why</th></tr>` +
       d.queue.slice(0, 20).map(a => `<tr>
-        <td style="white-space:nowrap"><b style="color:${vColor(a.action)}">${esc(a.action)}</b></td>
+        <td style="white-space:nowrap">${verdictChip(a.action)}</td>
         <td><span style="color:var(--accent2)">${esc(a.target)}</span>${a.title?`<div class="footnote">${esc(a.title)}</div>`:""}</td>
         <td class="footnote">${a.type==="campaign"?"GMV Max":a.type==="spark"?"spark":"sample"}</td>
         <td style="max-width:440px">${(a.why||[]).map(w=>esc(String(w))).join("<br/>")}
@@ -384,22 +558,23 @@ async function loadRecs() {
     <tr>
       <td class="num">#${c.rank}</td>
       <td><span class="handle">${esc(c.handle)}</span>${c.cold_start ? ' <span class="flag">cold-start</span>' : ""}</td>
-      <td class="num">${c.followers ? Number(c.followers).toLocaleString() : ""}</td>
+      <td class="num xcol">${c.followers ? Number(c.followers).toLocaleString() : ""}</td>
       <td>${esc(c.tier)}</td>
-      <td class="num">${c.total_gmv_30d ? "$" + Number(c.total_gmv_30d).toFixed(0) : ""}</td>
-      <td>${esc(c.sample_status)}</td>
+      <td class="num xcol">${c.total_gmv_30d ? "$" + Number(c.total_gmv_30d).toFixed(0) : ""}</td>
+      <td class="xcol">${esc(c.sample_status)}</td>
       <td>${esc(c.suggested_product)}</td>
       <td style="max-width:340px">${esc(c.signals)}
         ${c.watchouts ? `<details><summary>watchouts</summary><span class="watch">${esc(c.watchouts)}</span></details>` : ""}</td>
     </tr>`).join("");
   document.getElementById("recs").innerHTML =
-    `<tr><th class="num">rank</th><th>creator</th><th class="num">followers</th><th>tier</th>
-         <th class="num">30d GMV</th><th>sample status</th><th>suggested product</th><th>evidence</th></tr>${rows}`;
+    `<tr><th class="num">rank</th><th>creator</th><th class="num xcol">followers</th><th>tier</th>
+         <th class="num xcol">30d GMV</th><th class="xcol">sample status</th><th>suggested product</th><th>evidence</th></tr>${rows}`;
   document.getElementById("verdict").innerHTML = d.candidates.length
     ? `Top pick: <b>${esc(d.candidates[0].handle)}</b> (rank #${d.candidates[0].rank}) — ${d.candidates.length} eligible picks shown.`
     : "No eligible creators match this filter.";
   document.getElementById("excl").textContent =
     `guardrails: ${d.excluded.seeded} already-seeded and ${d.excluded.control} matched-control creators excluded before ranking (ordinal-only scores).`;
+  applyColPref();
 }
 async function ask() {
   const el = document.getElementById("answer");
@@ -538,9 +713,129 @@ async function loadEcon() {
       `<span class="footnote">${esc(h.note)}</span>`;
   } catch (e) { document.getElementById("cate").innerHTML = "unavailable"; }
 }
+// ── shared chip component ──
+const CHIP_CLS = { "SCALE":"good","SPARK NOW":"good","SAMPLE":"accent","TUNE":"warn","WATCH":"warn",
+  "REVIVE?":"warn","RETARGET":"pink","HOLD":"mute","PAUSED":"mute","CUT":"bad","GATE":"bad" };
+const chip = (label, cls) => `<span class="chip ${cls||'mute'}">${esc(label)}</span>`;
+const verdictChip = a => chip(a, CHIP_CLS[String(a).toUpperCase()] || "mute");
+
+// ── glossary: one vocabulary, shared with the PDF report (app/report.py _GLOSSARY) ──
+const GLOSSARY = [
+  ["ROAS","Return on ad spend — dollars back per $1 spent on a campaign."],
+  ["Breakeven ROAS","The ROAS a campaign must clear to cover product + fees; below it, it loses money even when it 'works'."],
+  ["Incremental lift","Extra sales caused by sampling a creator, above what they'd have sold anyway."],
+  ["Matched control","A similar un-sampled creator used as the comparison, so lift is causal, not just growth."],
+  ["Holdout","A controlled test — engine picks vs. status quo — reported with a confidence interval."],
+  ["Rank-IC","How well the ranking order matches realized results (Spearman). Negative here = winners on top."],
+  ["Precision@K","Of the top K picks, the share that turned out to be winners."],
+  ["CATE","Which creator segments respond most to sampling (conditional average treatment effect)."],
+  ["PSI / drift","A stability score on model inputs; high means the data shifted and the model may need a refit."],
+  ["Spark","Putting ad spend behind an organic video that's already taking off."],
+  ["GMV Max","TikTok's auto-optimized shopping-campaign type."],
+  ["Post rate","Share of shipped samples that actually became content."],
+  ["Maturation lag","Sales take ~40 days to attribute, so the newest months look low until they mature."],
+];
+document.getElementById("glossary-body").innerHTML =
+  GLOSSARY.map(([t,d]) => `<div class="gterm"><b>${esc(t)}</b> — ${esc(d)}</div>`).join("");
+
+function iwant(v){ if(v){ showTab(v); document.getElementById("iwant-sel").value=""; } }
+
+function toggleCols(){
+  const t = document.getElementById("recs"), btn = document.getElementById("recs-coltoggle");
+  const simple = t.classList.toggle("simplecols");
+  btn.textContent = simple ? "+ show all columns" : "– hide detail columns";
+  localStorage.setItem("cia_recs_cols", simple ? "simple" : "all");
+}
+function applyColPref(){
+  if (localStorage.getItem("cia_recs_cols") === "all"){
+    document.getElementById("recs").classList.remove("simplecols");
+    document.getElementById("recs-coltoggle").textContent = "– hide detail columns";
+  }
+}
+
+// ── click-to-copy handle chips ──
+function copyHandle(el, h){
+  (navigator.clipboard?.writeText(h) || Promise.reject()).then(()=>{
+    el.classList.add("copied"); const o = el.dataset.h; el.textContent = "copied ✓";
+    setTimeout(()=>{ el.classList.remove("copied"); el.textContent = o; }, 1100);
+  }).catch(()=>{});
+}
+const hchip = (h, extra) => `<span class="chip copy accent" data-h="${esc(h)}" onclick="copyHandle(this,'${esc(h)}')" title="click to copy">${esc(h)}${extra?` · ${esc(extra)}`:""}</span>`;
+
+// ── attention dot on a tab that needs a human ──
+function setDot(tabId, on){
+  const b = document.getElementById(tabId); if(!b) return;
+  let dot = b.querySelector(".adot");
+  if (on && !dot){ dot = document.createElement("span"); dot.className="adot"; b.appendChild(dot); }
+  else if (!on && dot){ dot.remove(); }
+}
+
+// ── "Your daily 10 minutes" — live counts from already-loaded feeds ──
+async function loadDaily(){
+  const steps = document.querySelectorAll("#daily-steps .daily-step");
+  const setStep = (i, n) => {
+    const num = steps[i].querySelector(".dnum");
+    if (n > 0){ num.textContent = n; steps[i].classList.remove("done"); }
+    else { num.textContent = "✓"; steps[i].classList.add("done"); steps[i].querySelector(".dwhat").textContent = "none today — skip"; }
+  };
+  try {
+    const [f, d, r] = await Promise.all([
+      fetch("/samples_in_flight").then(x=>x.json()).catch(()=>({})),
+      fetch("/decisions").then(x=>x.json()).catch(()=>({})),
+      fetch("/recommend?n=25").then(x=>x.json()).catch(()=>({})),
+    ]);
+    const q = d.queue || [];
+    const nudge = (f.summary && f.summary.cold) || (f.nudge && f.nudge.length) || 0;
+    const changes = q.filter(a=>a.type==="campaign" && ["CUT","GATE","TUNE","RETARGET","PAUSED"].includes(String(a.action).toUpperCase())).length;
+    const boosts = q.filter(a=>a.type==="spark" && String(a.action).toUpperCase()==="SPARK NOW").length;
+    const strong = (r.candidates||[]).filter(c=>!c.cold_start && (c.rank||999)<=25).length;
+    setStep(0, nudge); setStep(1, changes); setStep(2, strong); setStep(3, boosts);
+    setDot("tab-decisions", boosts>0 || changes>0);
+  } catch(e){}
+  try { const cs = await fetch("/corpus_stats").then(x=>x.json()); setDot("tab-voc", (cs.unanswered||0) > 0); } catch(e){}
+}
+
+// ── samples-in-flight radar (Sample tab) ──
+let inflightLoaded = false;
+async function loadInflight(){
+  const el = document.getElementById("inflight");
+  try {
+    const f = await fetch("/samples_in_flight").then(x=>x.json());
+    if (f.note && !f.weeks){ el.innerHTML = `<span class="footnote">${esc(f.note)}</span>`; return; }
+    const S = f.summary||{};
+    const legend = `<div class="radar-legend">${chip("sold "+(S.sold||0),"good")}${chip("posted "+(S.posted||0),"accent")}${chip("waiting "+(S.waiting||0),"mute")}${chip("cold "+(S.cold||0),"bad")}</div>`;
+    const maxWk = Math.max(1, ...(f.weeks||[]).map(w=>w.total));
+    const lanes = (f.weeks||[]).map(w=>{
+      const seg = k => w[k]>0 ? `<span class="seg ${k}" style="flex:${w[k]}" title="${w[k]} ${k}"></span>` : "";
+      return `<div class="lane"><span class="wk">${esc(w.label)}</span><span class="track" style="width:${Math.max(14, w.total/maxWk*100)}%">${seg("sold")}${seg("posted")}${seg("waiting")}${seg("cold")}</span></div>`;
+    }).join("");
+    const nudge = f.nudge||[];
+    const nMore = (nudge.length>10 || f.nudge_overflow>0)
+      ? `<details><summary class="footnote">show ${(Math.max(0,nudge.length-10))+(f.nudge_overflow||0)} more</summary><div class="chips-wrap" style="margin-top:7px">${nudge.slice(10).map(x=>hchip(x.handle,x.days+"d")).join("")}</div></details>` : "";
+    const nudgeStrip = nudge.length ? `<div class="strip nudge"><div class="stitle">🔴 Needs a nudge — shipped but gone quiet</div><div class="chips-wrap">${nudge.slice(0,10).map(x=>hchip(x.handle,x.days+"d")).join("")}</div>${nMore}</div>` : "";
+    const sold = f.just_sold||[];
+    const soldStrip = sold.length ? `<div class="strip sold"><div class="stitle">🟢 Converted — consider a boost or re-sample</div><div class="chips-wrap">${sold.map(x=>hchip(x.handle, money(x.lift))).join("")}</div></div>` : "";
+    el.innerHTML = legend + `<div style="margin-top:4px">${lanes}</div>` + nudgeStrip + soldStrip + `<div class="footnote">${esc(f.note||"")}</div>`;
+  } catch(e){ el.innerHTML = `<span class="footnote">radar unavailable</span>`; }
+}
+
+// ── lightweight first-visit tour ──
+function maybeTour(){
+  if (localStorage.getItem("cia_tour_done")) return;
+  const t = document.createElement("div"); t.className="tour"; t.id="tour";
+  t.innerHTML = `<h4>Welcome 👋</h4><p>Start with <b>Your daily 10 minutes</b> up top — it counts the few
+    things worth doing today. Tabs are named by the job they do, and the <b>?</b> by "synthetic data"
+    explains every term. <b>⬇ Agency report</b> prints the whole thing as a PDF.</p>
+    <div class="trow"><span class="tstep">one-time tip</span>
+      <button class="go" onclick="document.getElementById('tour').remove();localStorage.setItem('cia_tour_done','1')">Got it</button></div>`;
+  document.body.appendChild(t);
+}
+
 loadDecisions();
 loadRecs();
 loadKPIs();
+loadDaily();
+maybeTour();
 </script>
 </body>
 </html>
