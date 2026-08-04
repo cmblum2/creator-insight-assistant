@@ -17,6 +17,8 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
+import time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -119,7 +121,8 @@ def trajectory(vals, good_up=True):
 # ── markup helpers — helpers emit markup; callers pass text (which we escape) ─────────────────
 def chip(label, status="neutral"):
     c = STATUS.get(status, STATUS["neutral"])
-    return f'<span class="chip" style="border-color:{c};color:{c}">{esc(label)}</span>'
+    # tinted pill (survives print via print-color-adjust:exact in the CSS)
+    return f'<span class="chip" style="color:{c};background:{c}1a;border:1px solid {c}55">{esc(label)}</span>'
 
 
 def verdict_status(v):
@@ -177,11 +180,14 @@ def note_row(d, *keys):
     return None
 
 
-def section(title, body, sub="", page_break=True, idx=None):
+def section(title, body, sub="", page_break=True, idx=None, tag=None, read=None):
     pb = " pb" if page_break else ""
     n = f'<span class="s-num">{esc(idx)}</span>' if idx else ""
+    tg = f'<span class="s-tag t-{tag.lower()}">{esc(tag)}</span>' if tag else ""
     s = f'<div class="s-sub">{esc(sub)}</div>' if sub else ""
-    return f'<section class="sec{pb}">{n}<h2>{esc(title)}</h2>{s}{body}</section>'
+    rd = f'<div class="s-read"><span class="rl">THE READ</span> {esc(read)}</div>' if read else ""
+    return (f'<section class="sec{pb}">{n}<div class="s-head"><h2>{esc(title)}</h2>{tg}</div>'
+            f'{s}{rd}{body}</section>')
 
 
 # ── data helpers that read CSVs directly (weekly VoC views) ──────────────────────────────────
@@ -347,11 +353,12 @@ def _scoreboard(d):
     ]
     body = '<div class="tiles">' + "".join(tiles) + "</div>"
 
-    narr = d.get("voc", {})
+    dir_word = "up" if (_f(p_cur) or 0) >= (_f(p_prev) or 0) else "down"
+    read = f"Monthly incremental profit is {dir_word} to {money(p_cur)}, and {pct(w_cur)} of samples paid off."
     return section("Scoreboard", body,
                    sub="Every KPI carries a sparkline and month-over-month move; direction is colored by "
                        "whether it's good, not merely up. Lagged outcome metrics show the last matured month.",
-                   page_break=False, idx="1")
+                   page_break=False, idx="1", tag="CONTEXT", read=read)
 
 
 def _three_moves(d):
@@ -395,9 +402,11 @@ def _three_moves(d):
                  f'<div class="move-target">{esc(target)}</div><div class="move-meta">{meta}</div>'
                  f'<div class="instr">{esc(instr)}</div></div>')
     body += "</div>"
+    read = "Three moves, ranked: stop the worst campaign, boost the best-timed video, seed the strong picks."
     return section("Three moves this week", body,
                    sub="Auto-picked from the queue: the biggest thing to stop, the best-timed boost, and the "
-                       "week's seeding play sized in expected dollars.", page_break=False, idx="2")
+                       "week's seeding play sized in expected dollars.", page_break=False, idx="2",
+                   tag="ACT", read=read)
 
 
 def at_or_name(a):
@@ -453,9 +462,12 @@ def _problems(d):
     for dollars, area, ev, fix in quantified + unq:
         trs.append([esc(area), esc(ev), f'<b>{money(dollars)}</b>' if dollars is not None else "—", esc(fix)])
     body = table(["Area", "Evidence", "Est. $ at stake", "Recommended fix"], trs, right={2})
+    read = (f"The biggest fixable leak is {quantified[0][1].lower()} at ~{money(quantified[0][0])}."
+            if quantified else "The surfaced problems are real but not dollar-quantifiable at this scale.")
     return section("Problem areas — ranked by dollars at stake", body,
                    sub="Estimates use measured unit costs only (e.g. wasted samples × $%.0f cost, spend below "
-                       "breakeven). Real-but-unquantified problems sort last with “—”." % SAMPLE_COST, idx="3")
+                       "breakeven). Real-but-unquantified problems sort last with “—”." % SAMPLE_COST,
+                   idx="3", tag="ACT", read=read)
 
 
 def _action_queue(d):
@@ -464,21 +476,31 @@ def _action_queue(d):
     if nl:
         return section("Action queue", nl, idx="4")
     rows = ""
-    for a in dq.get("queue", []):
+    q = dq.get("queue", [])
+    for a in q:
         why = list(a.get("why", []))
         instr = ""
         if why and str(why[-1]).lstrip().startswith("→"):
-            instr = f'<div class="instr">{esc(why[-1])}</div>'
+            instr = f'<div class="instr">{esc(why[-1])}</div>'   # the exact change comes FIRST
             why = why[:-1]
-        bullets = "".join(f"<li>{esc(w)}</li>" for w in why)
         lever = {"campaign": "GMV Max", "spark": "Spark", "sample": "Sample"}.get(a.get("type"), a.get("type"))
         tgt = at_or_name(a)
-        title = f'<div class="q-ctx">{esc(a.get("title", ""))}</div>' if a.get("title") else ""
+        title = f'<span class="q-ctx">{esc(a.get("title", ""))}</span>' if a.get("title") else ""
+        # evidence in <details open> — MUST be open, closed <details> vanish in print
+        evidence = ""
+        if why:
+            bullets = "".join(f"<li>{esc(w)}</li>" for w in why)
+            evidence = (f'<details open class="q-ev"><summary>why</summary>'
+                        f'<ul class="q-why">{bullets}</ul></details>')
         rows += (f'<div class="qrow"><div class="q-head">{chip(a.get("action"), verdict_status(a.get("action")))}'
-                 f'<span class="q-target">{tgt}</span><span class="q-lever">{esc(lever)}</span></div>'
-                 f'{title}<ul class="q-why">{bullets}</ul>{instr}</div>')
+                 f'<span class="q-target">{tgt}</span> {title}'
+                 f'<span class="q-lever">{esc(lever)}</span></div>'
+                 f'{instr}{evidence}</div>')
+    with_instr = sum(1 for a in q if a.get("why") and str(a["why"][-1]).lstrip().startswith("→"))
+    read = f"{len(q)} actions queued; {with_instr} come with an exact change to make."
     return section("Action queue — full detail", f'<div class="queue">{rows}</div>',
-                   sub=esc(dq.get("note", "")) + f' · generated {esc(dq.get("generated", ""))}', idx="4")
+                   sub=esc(dq.get("note", "")) + f' · generated {esc(dq.get("generated", ""))}',
+                   idx="4", tag="ACT", read=read)
 
 
 def _voc_week(d):
@@ -512,9 +534,13 @@ def _voc_week(d):
                      f'<div class="queue">{rows}</div>'
                      '<p class="foot">Read it against the verdict: price pushback on a TUNE row → discount test; '
                      'buy-intent on a CUT row → the problem is economics, not demand.</p>')
+    read = "No comments landed in the window."
+    if isinstance(iw, dict) and iw.get("themes"):
+        t0 = iw["themes"][0]
+        read = f"“{t0['theme']}” leads the week at {pct(t0['share'])} of {iw.get('total', 0)} comments."
     return section("Voice of the customer — this week", "".join(parts),
                    sub="Weekly comment themes with real (synthetic) quotes, then joined to each live campaign.",
-                   idx="5")
+                   idx="5", tag="CONTEXT", read=read)
 
 
 def _trend_desk(d):
@@ -548,9 +574,11 @@ def _trend_desk(d):
         foot = ('<p class="foot">† Lagged outcome metrics: the last 2 months are immature (outcomes take '
                 '~40 days to attribute), so they are trimmed from the trend to avoid a false $0. '
                 'Volume metrics (samples) are shown in full.</p>')
+    prof = [r.get("profit") for r in tr if r.get("profit") is not None]
+    read = f"Matured profit is {trajectory(prof)} over the window; the last 2 months are still maturing."
     return section("Trend desk", body + foot,
                    sub="Metric × month, with each trajectory classified by least-squares slope. Months: "
-                       + esc(" · ".join(months)), idx="6")
+                       + esc(" · ".join(months)), idx="6", tag="CONTEXT", read=read)
 
 
 def _forward(d):
@@ -592,9 +620,12 @@ def _forward(d):
            '<li>Weekly: roster re-ranked from new outcomes, model refit, holdout ledger advanced.</li>'
            '<li>Continuous: drift monitor watches input PSI + ranker skill vs the saved baseline.</li>'
            '<li>This report regenerates from the latest snapshot every time it is opened.</li></ul>')
+    ann = prize.get("annual_incremental_profit") if isinstance(prize, dict) else None
+    read = (f"At the current pace the program projects ~{money(ann)}/yr in incremental profit."
+            if ann is not None else "Forecasts, the act-by list, and the system's own refresh cadence.")
     return section("What's next — forward 30 days", forecast + actby + watchlist + cal,
                    sub="Forecasts, the act-by list, verdicts at risk of flipping, and the system's own refresh cadence.",
-                   idx="7")
+                   idx="7", tag="ACT", read=read)
 
 
 def _deep(d):
@@ -666,7 +697,8 @@ def _deep(d):
                      f'<b>Competitor board</b> (synthetic brands): {board}.</p>')
     return section("Deep dives", "".join(parts),
                    sub="Budget optimization, sensitivity, timing, program economics, next picks, and the full VoC.",
-                   idx="8")
+                   idx="8", tag="CONTEXT",
+                   read="The supporting analysis behind the calls above — read it when you want the full picture.")
 
 
 def _appendix(d):
@@ -716,8 +748,12 @@ def _appendix(d):
     elif isinstance(drift, dict) and drift.get("status") == "baseline_written":
         parts.append('<h3>Model-drift monitor</h3><p class="foot">Baseline written this run; PSI compares on the '
                      'next cycle.</p>')
+    ric = rec.get("rank_ic") if isinstance(rec, dict) else None
+    read = (f"The ranker separates winners out-of-sample (rank-IC {num(ric, 3)}) — the numbers behind the trust."
+            if ric is not None else "Diagnostics behind the ranker, for readers who want to check the math.")
     return section("Technical appendix — model diagnostics", "".join(parts),
-                   sub="Proof the system learns, for readers who want to check the math.", idx="9")
+                   sub="Proof the system learns, for readers who want to check the math.",
+                   idx="9", tag="TECHNICAL", read=read)
 
 
 def _methodology():
@@ -735,14 +771,66 @@ def _methodology():
         "“directional” ones are there to brief humans, not to move the ranking.",
     ]
     body = '<ol class="method">' + "".join(f"<li>{b}</li>" for b in bullets) + "</ol>"
-    return section("How to read this report", body,
-                   sub="Five plain-English notes on the measurement design.", idx="10")
+    return section("Methodology", body,
+                   sub="Five plain-English notes on the measurement design.", idx="11", tag="TECHNICAL",
+                   read="How the numbers are measured — read this once and you can trust the rest.")
+
+
+_TOC_ROWS = [
+    ("1", "Scoreboard", "CONTEXT", "where the numbers stand + which way they're moving"),
+    ("2", "Three moves this week", "ACT", "the three highest-value things to do now"),
+    ("3", "Problem areas", "ACT", "what's leaking money, ranked by dollars"),
+    ("4", "Action queue", "ACT", "every campaign / spark / sample call with the exact change"),
+    ("5", "Voice of the customer", "CONTEXT", "what buyers are saying this week, per campaign"),
+    ("6", "Trend desk", "CONTEXT", "each metric's trajectory over recent months"),
+    ("7", "What's next", "ACT", "forecasts, act-by list, verdicts at risk of flipping"),
+    ("8", "Deep dives", "CONTEXT", "the supporting analysis behind the calls above"),
+    ("9", "Technical appendix", "TECHNICAL", "proof the ranker works — skip freely"),
+    ("10", "Glossary", "TECHNICAL", "every term in plain words"),
+    ("11", "Methodology", "TECHNICAL", "how the numbers are measured"),
+]
+
+
+def _toc():
+    rows = "".join(
+        f'<div class="toc-row"><span class="toc-n">§{n}</span><span class="toc-t">{esc(t)}</span>'
+        f'<span class="s-tag t-{tag.lower()}">{esc(tag)}</span><span class="toc-w">{esc(w)}</span></div>'
+        for n, t, tag, w in _TOC_ROWS)
+    route = ('Your team acts on <b class="t-act">ACT</b>; <b class="t-context">CONTEXT</b> is the why; '
+             '<b class="t-technical">TECHNICAL</b> exists so you can trust the rest — skip it freely.')
+    return section("How to use this report", f'<div class="toc">{rows}</div><p class="toc-route">{route}</p>',
+                   page_break=False)
+
+
+_GLOSSARY = [
+    ("ROAS", "Return on ad spend — dollars back per $1 spent on a campaign."),
+    ("Breakeven ROAS", "The ROAS a campaign must clear to cover product + fees; below it, the campaign "
+                       "loses money even when it looks like it's 'working'."),
+    ("Incremental lift", "Extra sales caused by sampling a creator, above what they'd have sold anyway."),
+    ("Matched control", "A similar un-sampled creator used as the comparison, so lift is causal, not just growth."),
+    ("Holdout", "A controlled test — engine picks vs. status quo — reported with a confidence interval."),
+    ("Rank-IC", "How well the ranking order matches realized results (Spearman). Negative here = winners on top."),
+    ("Precision@K", "Of the top K picks, the share that turned out to be winners."),
+    ("CATE", "Which creator segments respond most to sampling (conditional average treatment effect)."),
+    ("PSI / drift", "A stability score on model inputs; high means the data shifted and the model may need a refit."),
+    ("Spark", "Putting ad spend behind an organic video that's already taking off."),
+    ("GMV Max", "TikTok's auto-optimized shopping-campaign type."),
+    ("Post rate", "Share of shipped samples that actually became content."),
+    ("Maturation lag", "Sales take ~40 days to attribute, so the newest months look low until they mature."),
+]
+
+
+def _glossary():
+    items = "".join(f'<div class="gl"><b>{esc(t)}</b> {esc(d)}</div>' for t, d in _GLOSSARY)
+    return section("Glossary", f'<div class="glossary">{items}</div>',
+                   sub="One vocabulary — the same terms appear on the dashboard.",
+                   idx="10", tag="TECHNICAL", read="Every term used above, in plain words.")
 
 
 # ── CSS (print-first, light) ─────────────────────────────────────────────────────────────────
 _CSS = """
 :root{--ink:#0b0b0b;--sec:#52514e;--muted:#898781;--line:#e1e0d9;--blue:#2a78d6;--paper:#fff;}
-*{box-sizing:border-box;}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 body{background:var(--paper);color:var(--ink);font:10.5px/1.5 -apple-system,Segoe UI,Roboto,system-ui,sans-serif;
      max-width:780px;margin:0 auto;padding:22px 20px 60px;font-variant-numeric:tabular-nums;}
 h1{font-size:21px;margin:2px 0 4px;letter-spacing:-.01em;}
@@ -808,14 +896,31 @@ tr{page-break-inside:avoid;}
 .method li{margin:5px 0;}
 .foot{color:var(--muted);font-size:8.8px;margin-top:6px;}
 .unavail{color:var(--muted);font-style:italic;font-size:9.3px;}
+.s-head{display:flex;align-items:center;gap:9px;}
+.t-act{color:#b8641e;} .t-context{color:#2a78d6;} .t-technical{color:#8a8880;}
+.s-tag{font-size:7.4px;font-weight:800;letter-spacing:.09em;padding:1px 6px;border-radius:999px;
+  border:1px solid currentColor;background:color-mix(in srgb,currentColor 12%,transparent);
+  text-transform:uppercase;white-space:nowrap;}
+.s-read{font-size:9.6px;margin:5px 0 9px;padding:5px 9px;background:#f6f5f1;border-radius:5px;line-height:1.45;}
+.s-read .rl{font-weight:800;letter-spacing:.06em;font-size:7.8px;color:var(--muted);margin-right:7px;}
+.toc-row{display:grid;grid-template-columns:30px 148px 62px 1fr;gap:8px;align-items:center;
+  padding:3px 0;border-bottom:1px solid var(--line);font-size:9.3px;}
+.toc-n{color:var(--muted);font-weight:700;} .toc-t{font-weight:600;} .toc-w{color:var(--sec);}
+.toc-route{font-size:9.3px;margin-top:9px;color:var(--sec);}
+.glossary{column-count:2;column-gap:22px;margin-top:4px;}
+.gl{break-inside:avoid;margin:0 0 7px;font-size:9.3px;line-height:1.4;}
+.gl b{color:var(--ink);}
+.q-ev{margin-top:5px;}
+.q-ev summary{font-size:8.2px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;cursor:default;}
+.q-ev .q-why{margin-top:3px;}
 """
 
 
 def build_report_html(budget=50000):
     d = build_report_data(budget)
     sections = [
-        _header(d), _scoreboard(d), _three_moves(d), _problems(d), _action_queue(d),
-        _voc_week(d), _trend_desk(d), _forward(d), _deep(d), _appendix(d), _methodology(),
+        _header(d), _toc(), _scoreboard(d), _three_moves(d), _problems(d), _action_queue(d),
+        _voc_week(d), _trend_desk(d), _forward(d), _deep(d), _appendix(d), _glossary(), _methodology(),
     ]
     body = "".join(sections)
     return (f'<!doctype html><html><head><meta charset="utf-8"/>'
@@ -863,3 +968,21 @@ def build_report_pdf(budget=50000) -> Path:
     if not out.exists():
         raise RuntimeError("Chrome ran but produced no PDF")
     return out
+
+
+# 15-min cache + single-flight lock: a report build is ~30-45s (Chrome + data assembly), and users
+# double-click the button. The lock makes impatient re-clicks share one build instead of spawning many.
+_PDF_CACHE, _PDF_LOCK, _PDF_TTL = {}, threading.Lock(), 15 * 60
+
+
+def build_report_pdf_cached(budget=50000) -> Path:
+    hit = _PDF_CACHE.get(budget)
+    if hit and time.monotonic() - hit[0] < _PDF_TTL and hit[1].exists():
+        return hit[1]
+    with _PDF_LOCK:
+        hit = _PDF_CACHE.get(budget)              # re-check inside the lock (another thread may have built)
+        if hit and time.monotonic() - hit[0] < _PDF_TTL and hit[1].exists():
+            return hit[1]
+        p = build_report_pdf(budget)
+        _PDF_CACHE[budget] = (time.monotonic(), p)
+        return p

@@ -182,6 +182,28 @@ def query_endpoint(q: Q):
         raise HTTPException(503, f"query unavailable: {str(e)[:200]}")
 
 
+@api.get("/ops_brief")
+def ops_brief_endpoint():
+    """One ready-to-post Discord 'Morning Brief' embed built from the synthetic outputs. A scheduler
+    fetches this and posts it to a webhook (batching + the webhook URL are the scheduler's job)."""
+    from app.ops_brief import ops_brief
+    try:
+        return ops_brief()
+    except Exception as e:
+        raise HTTPException(503, f"ops_brief unavailable: {str(e)[:200]}")
+
+
+@api.get("/samples_in_flight")
+def samples_in_flight_endpoint():
+    """Shepherding view: classify recently-shipped samples (sold/posted/cold/waiting), weekly rollups
+    + a nudge list of creators who've gone quiet."""
+    from app.inflight import samples_in_flight
+    try:
+        return samples_in_flight()
+    except Exception as e:
+        raise HTTPException(503, f"samples_in_flight unavailable: {str(e)[:200]}")
+
+
 @api.get("/report", response_class=HTMLResponse)
 def report_html(budget: float = 50000):
     """The weekly agency report as a printable web page (also the print-preview for the PDF)."""
@@ -198,9 +220,9 @@ def report_html(budget: float = 50000):
 def report_pdf(budget: float = 50000):
     """Same report printed to PDF via installed Chrome/Chromium. Falls back to a clear 503 with
     guidance if no browser is available (use /report and print from the browser instead)."""
-    from app.report import build_report_pdf
+    from app.report import build_report_pdf_cached
     try:
-        path = build_report_pdf(min(max(budget, 0), 100_000_000))
+        path = build_report_pdf_cached(min(max(budget, 0), 100_000_000))
     except Exception as e:
         raise HTTPException(503, f"PDF unavailable: {str(e)[:200]}")
     return FileResponse(str(path), media_type="application/pdf",
