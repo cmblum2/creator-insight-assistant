@@ -183,6 +183,17 @@ def query_endpoint(q: Q):
         raise HTTPException(503, f"query unavailable: {str(e)[:200]}")
 
 
+@api.get("/creator")
+def creator_endpoint(handle: str = ""):
+    """The engine's full dossier on ONE creator (reverse of the recommend flow): ranked-shortlist card
+    if scored, else roster metrics + playbook outlook, else history-only / unknown — all framed honestly."""
+    from app.creator_lookup import lookup
+    try:
+        return lookup(handle)
+    except Exception as e:
+        raise HTTPException(503, f"creator lookup unavailable: {str(e)[:200]}")
+
+
 @api.get("/ops_brief")
 def ops_brief_endpoint():
     """One ready-to-post Discord 'Morning Brief' embed built from the synthetic outputs. A scheduler
