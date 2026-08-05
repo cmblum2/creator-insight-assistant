@@ -181,6 +181,43 @@
   .tour p { color:var(--muted); font-size:12px; margin:0 0 11px; line-height:1.5; }
   .tour .trow { display:flex; justify-content:space-between; align-items:center; }
   .tour .tstep { color:var(--faint); font-size:11px; }
+
+  /* ── creator lookup ── */
+  .lookup-search input { font-size:12px; padding:6px 9px; width:158px; margin-left:8px; }
+  dialog.lookup { background:var(--panel); color:var(--text); border:1px solid var(--border2); border-radius:14px;
+    max-width:560px; width:92%; padding:20px 22px; box-shadow:var(--shadow); }
+  dialog.lookup::backdrop { background:rgba(4,8,12,.62); backdrop-filter:blur(2px); }
+  dialog.lookup h3 { margin:0 0 4px; font-size:16px; font-family:var(--mono); }
+  .lk-tier { color:var(--faint); font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:11px; }
+  .lk-chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .lk-outlook { background:var(--inset); border:1px solid var(--border); border-left:3px solid var(--accent2);
+    border-radius:8px; padding:9px 11px; margin-bottom:12px; font-size:12.5px; line-height:1.5; }
+  .lk-outlook b { color:var(--text); }
+  .lk-row { display:grid; grid-template-columns:158px 1fr; gap:10px; padding:5px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
+  .lk-row .lk-lab { color:var(--muted); }
+  .lk-list { margin:7px 0 0; padding-left:16px; font-size:12px; color:var(--muted); line-height:1.5; }
+  .lk-list.watch li { color:var(--accent2); }
+  .lk-actions { display:flex; gap:8px; margin-top:15px; align-items:center; }
+  .lk-note { color:var(--muted); font-size:12.5px; padding:6px 0 2px; line-height:1.5; }
+  .lk-spin { color:var(--muted); font-size:12.5px; padding:4px 0; }
+
+  /* ── phone pass ── */
+  @media (max-width:720px){
+    body { padding:16px 12px 80px; overflow-x:hidden; }
+    .topbar { flex-direction:column; gap:12px; }
+    .topbar > div:first-child { min-width:0; }
+    .topbar-right { align-items:flex-start; width:100%; }
+    .kpis { grid-template-columns:1fr 1fr; }
+    .health { flex-wrap:wrap; white-space:normal; }
+    .daily-steps { grid-template-columns:1fr 1fr; }
+    .controls { flex-wrap:wrap; }
+    .tabs button { padding:8px 12px; font-size:12.5px; }
+    .iwant { margin-left:0; }
+    .lookup-search input { margin-left:0; width:130px; }
+    .sub { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; cursor:pointer; }
+    .sub.expanded { display:block; }
+    .lk-row { grid-template-columns:1fr; gap:2px; }
+  }
 </style>
 </head>
 <body>
@@ -198,11 +235,12 @@
     </div>
     <div class="topbar-right">
       <button class="report-btn" onclick="window.open('/report.pdf','_blank')"
+        aria-label="Download the weekly agency report as a PDF"
         title="Generates a printable weekly report (~15–30s live). Opens the PDF in a new tab.">⬇ Agency report (PDF)</button>
       <a class="report-link" href="/report" target="_blank">view as page</a>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="health" id="health"><span class="dot accent"></span>synthetic data</div>
-        <button class="qmark" onclick="document.getElementById('glossary').showModal()" title="What do these terms mean?">?</button>
+        <button class="qmark" onclick="document.getElementById('glossary').showModal()" aria-label="Open the plain-English glossary" title="What do these terms mean?">?</button>
       </div>
     </div>
   </div>
@@ -211,6 +249,10 @@
     <button class="ghost gclose" onclick="this.closest('dialog').close()">close</button>
     <h3>Plain-English glossary</h3>
     <div id="glossary-body"></div>
+  </dialog>
+
+  <dialog class="lookup" id="lookup" onclick="if(event.target===this)this.close()">
+    <div id="lookup-body"></div>
   </dialog>
 
   <div class="daily" id="daily">
@@ -267,6 +309,9 @@
         <option value="econ">check the ROI proof</option>
         <option value="ask">ask a question</option>
       </select></label></span>
+    <span class="lookup-search">
+      <input id="lookup-input" placeholder="🔎 @creator" aria-label="Look up any creator by handle"
+        onkeydown="if(event.key==='Enter')doLookup()" /></span>
   </nav>
 
   <div id="view-decisions">
@@ -431,6 +476,8 @@
 <script>
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = v => v == null ? "—" : "$" + Number(v).toLocaleString(undefined, {maximumFractionDigits: 0});
+// markdown-lite for LLM text: strip leading #-headers on raw → escape → **bold**→<b> (order matters)
+const mdLite = raw => esc(String(raw ?? "").replace(/^#{1,6}\s+/gm, "")).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
 let econLoaded = false, decLoaded = false, vocLoaded = false;
 function showTab(t) {
   for (const v of ["decisions", "recs", "ask", "voc", "econ"]) {
@@ -467,7 +514,7 @@ async function explainRow(btn, verdict, target) {
   try {
     const url = "/explain?verdict=" + encodeURIComponent(verdict) + "&handle=" + encodeURIComponent(target);
     const e = await (await fetch(url)).json();
-    out.innerHTML = e.answer ? esc(e.answer) : `<i>${esc(e.note || "unavailable")}</i>`;
+    out.innerHTML = e.answer ? mdLite(e.answer) : `<i>${esc(e.note || "unavailable")}</i>`;
   } catch(err) { out.textContent = "explain unavailable"; }
   btn.disabled = false;
 }
@@ -479,7 +526,7 @@ async function loadBrief() {
   try {
     const b = await (await fetch("/brief?product=" + encodeURIComponent(p))).json();
     el.innerHTML = b.brief
-      ? `<div style="white-space:pre-wrap">${esc(b.brief)}</div>`
+      ? `<div style="white-space:pre-wrap">${mdLite(b.brief)}</div>`
         + `<div class="footnote" style="margin-top:8px">Grounded in ${(b.grounding&&b.grounding.captions||[]).length} winning captions${b.grounding&&b.grounding.competitor?", preempting "+esc(b.grounding.competitor):""}.</div>`
       : `<span class="footnote">${esc(b.note || "unavailable")}</span>`;
   } catch(e){ el.innerHTML = `<span class="footnote">brief unavailable</span>`; }
@@ -585,7 +632,7 @@ async function ask() {
                            intent_only: document.getElementById("intent").checked }) });
   const d = await r.json();
   if (!r.ok) { el.textContent = "error: " + (d.detail || r.status); return; }
-  el.textContent = d.answer;
+  el.innerHTML = mdLite(d.answer);
   document.getElementById("sources").textContent =
     "sources: " + [...new Set(d.sources.map(s => s.handle || s.source))].join(", ");
 }
@@ -740,6 +787,50 @@ document.getElementById("glossary-body").innerHTML =
 
 function iwant(v){ if(v){ showTab(v); document.getElementById("iwant-sel").value=""; } }
 
+// ── creator lookup: the engine's dossier on ONE creator (reverse of the recommend flow) ──
+async function doLookup(){
+  const h = document.getElementById("lookup-input").value.trim();
+  if(!h) return;
+  const dlg = document.getElementById("lookup"), body = document.getElementById("lookup-body");
+  body.innerHTML = `<div class="lk-spin">asking the engine about <b>@${esc(h.replace(/^@/,''))}</b>…</div>`;
+  if(!dlg.open) dlg.showModal();
+  try {
+    const d = await fetch("/creator?handle=" + encodeURIComponent(h)).then(r=>r.json());
+    body.innerHTML = renderLookup(d);
+  } catch(e){ body.innerHTML = `<div class="lk-note">lookup unavailable — try again in a moment.</div>`; }
+}
+function renderLookup(d){
+  const close = `<button class="ghost gclose" style="float:right" onclick="this.closest('dialog').close()">close</button>`;
+  const head = close + `<h3>${esc(d.handle || "—")}</h3>`;
+  if(!d.found){ return head + `<div class="lk-note">${esc(d.note || "no record for that handle.")}</div>`; }
+  const tierLabel = {ranked:"in the ranked shortlist", roster:"in roster — not in the ranked shortlist",
+    history:"history on record only", unknown:"unknown"}[d.tier] || d.tier;
+  const kindCls = {rank:"accent", warn:"warn", muted:"mute", good:"good", bad:"bad"};
+  const chips = (d.chips||[]).map(c =>
+    `<span class="chip ${kindCls[c.kind]||'mute'}" ${c.hint?`title="${esc(c.hint)}"`:""}>${esc(c.label)}</span>`).join("");
+  const outlook = d.outlook
+    ? `<div class="lk-outlook"><b>Playbook outlook: ${esc(d.outlook.tier)}</b> — ${esc(d.outlook.reason)}</div>` : "";
+  const rows = (d.metrics||[]).map(m =>
+    `<div class="lk-row"><span class="lk-lab" ${m.hint?`title="${esc(m.hint)}"`:""}>${esc(m.label)}</span>` +
+    `<span class="lk-val">${esc(m.value) || "—"}</span></div>`).join("");
+  const ev = (d.evidence||[]).length
+    ? `<div class="usewhen" style="margin-top:12px">Evidence</div><ul class="lk-list">${d.evidence.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>` : "";
+  const wo = (d.watchouts||[]).length
+    ? `<div class="usewhen" style="margin-top:10px">Watch-outs</div><ul class="lk-list watch">${d.watchouts.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>` : "";
+  const actions = `<div class="lk-actions">${hchip(d.handle)}<button class="ghost" onclick="this.closest('dialog').close()">close</button></div>`;
+  return head + `<div class="lk-tier">${esc(tierLabel)}</div>` +
+    (chips?`<div class="lk-chips">${chips}</div>`:"") + outlook +
+    `<div class="lk-rows">${rows}</div>` + ev + wo + actions;
+}
+
+// ── control persistence (product filter, budget) via localStorage ──
+function persistControl(id){
+  const el = document.getElementById(id); if(!el) return;
+  const key = "ctl-" + id, saved = localStorage.getItem(key);
+  if(saved !== null && saved !== "") el.value = saved;
+  el.addEventListener("change", () => localStorage.setItem(key, el.value));
+}
+
 function toggleCols(){
   const t = document.getElementById("recs"), btn = document.getElementById("recs-coltoggle");
   const simple = t.classList.toggle("simplecols");
@@ -831,11 +922,24 @@ function maybeTour(){
   document.body.appendChild(t);
 }
 
+// restore persisted controls BEFORE the loaders read their values
+persistControl("product");
+persistControl("alloc-budget");
+// mobile: tap the intro memo to expand past the 3-line clamp
+document.querySelector(".sub")?.addEventListener("click", function(){ this.classList.toggle("expanded"); });
+
 loadDecisions();
 loadRecs();
 loadKPIs();
 loadDaily();
 maybeTour();
+
+// lazy-tab prefetch: warm the heavy tabs ~4s after first paint so later switches feel instant
+setTimeout(() => {
+  if(!econLoaded){ econLoaded = true; loadEcon(); }
+  if(!vocLoaded){ vocLoaded = true; loadVoc(); }
+  if(!inflightLoaded){ inflightLoaded = true; loadInflight(); }
+}, 4000);
 </script>
 </body>
 </html>
