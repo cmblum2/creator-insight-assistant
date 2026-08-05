@@ -1,27 +1,27 @@
 """Product dropdown + leaf-level product-fit (synthetic twin). Dropdown from the insights'
 suggested_product; leaf product-type audience via creator_videos x product_categories."""
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
 from app.config import CONTRACT
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def products():
     s = pd.read_csv(CONTRACT["creator_insights"])["suggested_product"].dropna().astype(str)
     vc = s[s.str.strip() != ""].value_counts()
     return {"products": [{"name": p, "n": int(n)} for p, n in vc.items()][:40]}
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _cats():
     df = pd.read_csv(CONTRACT["product_categories"])
     df["product_id"] = df["product_id"].astype(str)
     return df
 
 
-@lru_cache(maxsize=128)
+@shop_cache
 def product_leaf(search):
     s = (search or "").strip().lower()
     if not s:
@@ -31,7 +31,7 @@ def product_leaf(search):
     return sorted(m["leaf_category"].dropna().unique().tolist())
 
 
-@lru_cache(maxsize=128)
+@shop_cache
 def leaf_creators(search):
     leaves = product_leaf(search)
     if not leaves:

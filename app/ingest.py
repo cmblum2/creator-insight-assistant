@@ -36,17 +36,21 @@ def insight_doc(row):
     return "\n".join(lines)
 
 
-def main():
-    client = chromadb.PersistentClient(path=CHROMA_DIR)
+def _build_shop(client, slug):
+    """Build one shop's RAG collection (corpus_<slug>). CONTRACT resolves to this shop once set_shop
+    runs, so INGEST_CONFIG's source keys (creators/comments) read the right dir."""
+    from app import tenant
+    tenant.set_shop(slug)
+    name = f"corpus_{slug}"
     try:
-        client.delete_collection("creator_corpus")   # idempotent re-index
+        client.delete_collection(name)   # idempotent re-index
     except Exception:
         pass
-    col = client.get_or_create_collection("creator_corpus")
+    col = client.get_or_create_collection(name)
 
     docs, metas, ids = [], [], []
     for source, cfg in INGEST_CONFIG.items():
-        df = pd.read_csv(cfg["path"]).fillna("")
+        df = pd.read_csv(CONTRACT[source]).fillna("")   # CONTRACT -> data/shops/<slug>/<source>.csv
         for i, row in df.iterrows():
             text = "\n".join(f"{c}: {row[c]}" for c in cfg["text_cols"]
                              if str(row.get(c, "")).strip())
@@ -71,7 +75,16 @@ def main():
 
     for s in range(0, len(docs), 500):      # batch to stay under Chroma limits
         col.add(documents=docs[s:s+500], metadatas=metas[s:s+500], ids=ids[s:s+500])
-    print(f"indexed {len(docs)} documents into '{CHROMA_DIR}'")
+    print(f"  [{slug}] indexed {len(docs)} documents into '{name}'")
+    return len(docs)
+
+
+def main():
+    from app import tenant
+    client = chromadb.PersistentClient(path=CHROMA_DIR)
+    shops = tenant.list_shops() or [{"slug": tenant.default_shop()}]
+    total = sum(_build_shop(client, s["slug"]) for s in shops)
+    print(f"indexed {total} documents across {len(shops)} shop(s) into '{CHROMA_DIR}'")
 
 
 if __name__ == "__main__":

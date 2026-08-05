@@ -1,14 +1,30 @@
-import functools
 import os
 from datetime import date
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from app import tenant
+from app.tenant import shop_cache
 from app.graph import APP
 
 api = FastAPI(title="Creator Insight Assistant")
+
+
+@api.middleware("http")
+async def _tenant_middleware(request: Request, call_next):
+    """Resolve the request's shop once (?shop= wins, else the `shop` cookie, else the default) and set
+    it in the request-scoped contextvar so every data module reads the right tenant. Unknown/blank
+    falls back to the default — the input is never trusted into a path."""
+    tenant.set_shop(request.query_params.get("shop") or request.cookies.get("shop") or "")
+    return await call_next(request)
+
+
+@api.get("/shops")
+def shops():
+    """The tenant registry + which shop this request resolved to (drives the dashboard shop switcher)."""
+    return {"shops": tenant.list_shops(), "current": tenant.current_shop()}
 
 
 class Q(BaseModel):
@@ -241,7 +257,7 @@ def report_pdf(budget: float = 50000):
                         filename=f"agency-report-{date.today().isoformat()}.pdf")
 
 
-@functools.lru_cache(maxsize=1)
+@shop_cache
 def _corpus_stats():
     """Cached: a full-corpus scan per request added latency for a value that only changes on rebuild.
     `unanswered` = high buy-intent comments (purchase/confirmed_purchase) — the synthetic stand-in for

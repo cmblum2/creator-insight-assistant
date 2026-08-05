@@ -13,7 +13,7 @@ Handle is validated before use (reject, don't sanitize), and lookups are cached 
 Synthetic data only.
 """
 import re
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
@@ -26,7 +26,7 @@ def _at(h):
     return "@" + str(h).lstrip("@")
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _ranked():
     """The model's ranked shortlist as {normalized_handle: card}. recommend() already excludes
     seeded + matched controls, so absence here is meaningful (that's tier 2)."""
@@ -35,18 +35,18 @@ def _ranked():
     return {str(c.get("handle", "")).lstrip("@").lower(): c for c in cands}
 
 
-@lru_cache(maxsize=8)   # one entry per table (roster/creators/…) — NOT 1, or they evict each other
+@shop_cache   # one entry per table (roster/creators/…) — NOT 1, or they evict each other
 def _by_handle(key):
     df = pd.read_csv(CONTRACT[key])
     return {str(h).lstrip("@").lower(): r for h, r in zip(df["handle"], df.to_dict("records"))}
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _sreq():
     return pd.read_csv(CONTRACT["sample_requests"])
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _comments():
     return pd.read_csv(CONTRACT["comments"])
 
@@ -68,7 +68,7 @@ def lookup(handle):
     return _lookup(h)
 
 
-@lru_cache(maxsize=256)
+@shop_cache
 def _lookup(h):
     out = {"handle": _at(h), "found": False, "tier": "unknown", "chips": [], "metrics": [],
            "evidence": [], "watchouts": [], "outlook": None, "note": ""}

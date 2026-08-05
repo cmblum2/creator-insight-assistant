@@ -11,14 +11,14 @@ Drivers are named + defensible: net_margin = product contribution (40.5%) - affi
 (10.5%) = 30%; sample_cost = $14 (COGS + ship), the one estimate, stress-tested in sensitivity().
 Synthetic data here, but the same math and framing as the production engine.
 """
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
 from app.config import CONTRACT, NET_MARGIN, SAMPLE_COST, PRODUCT_CONTRIB, COMMISSION_RATE
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _labeled_gmv():
     """Per sampled creator: refund-adjusted incremental GMV (did_lift_refadj) — the revenue the profit
     math is built on."""

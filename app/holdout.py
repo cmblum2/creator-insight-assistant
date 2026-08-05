@@ -16,8 +16,11 @@ import os
 import pandas as pd
 
 from app.config import CONTRACT, NET_MARGIN, SAMPLE_COST
+from app.tenant import shop_dir
 
-LEDGER = "data/holdout_ledger.csv"
+
+def _ledger():
+    return f"{shop_dir()}/holdout_ledger.csv"   # per-shop forward randomized ledger
 
 
 def _labeled_profit():
@@ -48,8 +51,8 @@ def init_forward_ledger(top_n=120):
     from app.recommend import _insights
     from app.enrich import enrich
     existing = {}
-    if os.path.exists(LEDGER):
-        existing = {r["creator_id"]: r["arm"] for _, r in pd.read_csv(LEDGER).iterrows()}
+    if os.path.exists(_ledger()):
+        existing = {r["creator_id"]: r["arm"] for _, r in pd.read_csv(_ledger()).iterrows()}
     rows, seen = [], set()
     for _, row in _insights().iterrows():
         cid = str(row["creator_id"])
@@ -66,15 +69,15 @@ def init_forward_ledger(top_n=120):
         if len(rows) >= top_n:
             break
     df = pd.DataFrame(rows)
-    df.to_csv(LEDGER, index=False)
+    df.to_csv(_ledger(), index=False)
     return {"total": len(df), "treatment": int((df["arm"] == "treatment").sum()),
             "control": int((df["arm"] == "control").sum())}
 
 
 def report():
     out = {"quasi_experiment": quasi_experiment()}
-    if os.path.exists(LEDGER):
-        led = pd.read_csv(LEDGER)
+    if os.path.exists(_ledger()):
+        led = pd.read_csv(_ledger())
         out["forward_holdout_status"] = (f"ledger initialized: {len(led)} creators "
                                          f"({int((led['arm']=='treatment').sum())} treatment / "
                                          f"{int((led['arm']=='control').sum())} control) — accumulating outcomes")

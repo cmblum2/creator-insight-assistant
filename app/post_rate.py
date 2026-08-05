@@ -1,7 +1,7 @@
 """Sample -> post -> sale funnel (synthetic twin): does a shipped sample become content, and does it
-sell? Reads sample_requests.csv (Euka's own fulfillment status: 'Completed' = content delivered,
+sell? Reads sample_requests.csv (the platform's fulfillment status: 'Completed' = content delivered,
 'Content Unfulfilled'/'Pending' = the leak) + creator_videos.csv (revenue on the posted product)."""
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
@@ -12,7 +12,7 @@ NO_CONTENT = ("Content Unfulfilled", "Content Pending")
 GOT_PRODUCT = (FULFILLED, "Shipped", "Ready to Ship") + NO_CONTENT
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _data():
     s = pd.read_csv(CONTRACT["sample_requests"])
     v = pd.read_csv(CONTRACT["creator_videos"])
@@ -21,7 +21,7 @@ def _data():
     return s, v
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def funnel():
     s, v = _data()
     s = s[s["status"].isin(GOT_PRODUCT)]
@@ -43,7 +43,7 @@ def funnel():
     }
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def creator_post_rate(min_shipped=3):
     s, _ = _data()
     s = s[s["status"].isin(GOT_PRODUCT)].copy()

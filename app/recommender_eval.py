@@ -9,14 +9,14 @@ refund-adjusted lift (did_lift_refadj). Three read-outs:
 Synthetic data only — no real creators, handles, or warehouse. This is the evaluation-discipline piece
 the project exists to demonstrate.
 """
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
 from app.config import CONTRACT
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _labels():
     from pathlib import Path
     f = Path(CONTRACT["outcomes"])

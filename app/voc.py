@@ -3,27 +3,30 @@ board (with the positioning wedge), price/praise samples, and a VALIDATED action
 audiences convert worse). Reads comments.csv (category + text). Competitor names are 100% fake."""
 import os
 from collections import Counter
-from functools import lru_cache
+from app.tenant import shop_cache, shop_config
 
 import pandas as pd
 
 from app.config import CONTRACT
 
-COMPETITORS = ["WaveLux", "SleekPro", "CurlCraft"]
+
+def _competitors():
+    """The current shop's competitor set, from the tenant registry (falls back to a generic list)."""
+    return shop_config().get("competitors", []) or ["BrandA", "BrandB", "BrandC"]
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _comments():
     return pd.read_csv(CONTRACT["comments"])
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def voc():
     df = _comments()
     n = len(df)
     mix = {k: round(v / n, 3) for k, v in Counter(df["category"]).most_common()}
     board = []
-    for comp in COMPETITORS:
+    for comp in _competitors():
         cnt = int(df["comment_text"].str.contains(comp, case=False, na=False).sum())
         if cnt:
             board.append({"competitor": comp, "mentions": cnt})

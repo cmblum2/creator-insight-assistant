@@ -2,7 +2,7 @@
 Per-video theme shares (comments.csv) vs conversion = organic orders/views (videos.csv), Spearman +
 Bonferroni. The synthetic data is built so competitor-comparison share is negatively associated with
 conversion — mirroring the real finding. Creator-level is reported infeasible, as in production."""
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 from scipy.stats import spearmanr
@@ -12,7 +12,7 @@ from app.config import CONTRACT
 THEMES = ["purchase", "confirmed_purchase", "price", "comparison", "praise"]
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def video_associations():
     cm = pd.read_csv(CONTRACT["comments"])
     vids = pd.read_csv(CONTRACT["videos"])

@@ -1,7 +1,7 @@
 """Per-campaign breakeven ROAS (synthetic twin). Reads the breakeven_roas column from the synthetic
 campaigns table; a blank breakeven = a 'launch' campaign with no profitable ROAS (fix pricing, not
 spend). Same shape as the production margin-based breakeven view."""
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
@@ -10,7 +10,7 @@ from app.config import CONTRACT
 CHANNEL_BREAKEVEN = 1.86   # synthetic channel default
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _camps():
     return pd.read_csv(CONTRACT["campaigns"])
 

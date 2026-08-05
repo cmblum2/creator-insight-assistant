@@ -1,13 +1,13 @@
 """Portfolio buy-intent summary (synthetic twin): purchase-category comments per creator + overall
 density. Reads comments.csv (category)."""
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
 from app.config import CONTRACT
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def intent_summary():
     df = pd.read_csv(CONTRACT["comments"])
     df["is_intent"] = df["category"].isin(["purchase", "confirmed_purchase"]).astype(int)

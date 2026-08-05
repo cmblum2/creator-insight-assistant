@@ -2,7 +2,7 @@
 Subgroup mean of the refund-adjusted lift (did_lift_refadj) across audience-size / seller-size /
 buy-intent tertiles, with bootstrap CIs. Insight only. Reads outcomes.csv + roster + insights."""
 import json
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ def _boot(x, n=2000, lo=5, hi=95):
     return [round(float(np.percentile(m, lo))), round(float(np.percentile(m, hi)))]
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _joined():
     om = pd.read_csv(CONTRACT["outcomes"])
     col = LABEL if LABEL in om.columns else "did_lift"
@@ -45,7 +45,7 @@ def _tertiles(df, feat, nice):
         return [(f"{nice} =0", (s <= 0).values), (f"{nice} >0", (s > 0).values)]
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def heterogeneity():
     df = _joined()
     if df.empty:

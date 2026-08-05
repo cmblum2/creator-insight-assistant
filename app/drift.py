@@ -15,9 +15,13 @@ import numpy as np
 import pandas as pd
 
 from app.config import CONTRACT
+from app.tenant import shop_dir
 
-BASELINE = "data/drift_baseline.json"
 _PSI_SIGNIFICANT = 0.25
+
+
+def _baseline_path():
+    return f"{shop_dir()}/drift_baseline.json"   # per-shop, so one shop's baseline never gates another
 
 
 def _psi(base_edges, base_props, actual):
@@ -51,7 +55,7 @@ def _features():
     except Exception:
         pass
     try:
-        c = pd.read_csv("data/creators.csv")
+        c = pd.read_csv(CONTRACT["creators"])
         out["followers"] = pd.to_numeric(c["followers"], errors="coerce").dropna().tolist()
     except Exception:
         pass
@@ -91,13 +95,14 @@ def snapshot():
 
 
 def drift_report():
+    baseline = _baseline_path()
     snap = snapshot()
-    if not os.path.exists(BASELINE):
-        with open(BASELINE, "w", encoding="utf-8") as f:
+    if not os.path.exists(baseline):
+        with open(baseline, "w", encoding="utf-8") as f:
             json.dump(snap, f)
         return {"status": "baseline_written", "note": "first run — saved baseline; drift reported next run.",
                 "skill": snap["skill"], "hit_rate": snap["hit_rate"], "n_labels": snap["n_labels"]}
-    base = json.load(open(BASELINE, encoding="utf-8"))
+    base = json.load(open(baseline, encoding="utf-8"))
     feats_now = _features()
     psi = {}
     for c, b in (base.get("features") or {}).items():

@@ -3,7 +3,7 @@ Synthetic twin of the production engine: identical verdict logic + plain-English
 synthetic campaigns / videos tables instead of the warehouse.
 """
 from datetime import datetime, timezone
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
@@ -134,7 +134,7 @@ def _sample_actions(limit=8):
     return out
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def decision_queue():
     q = _video_actions() + _sample_actions() + _campaign_actions()
     q.sort(key=lambda a: -a["impact"])

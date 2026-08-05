@@ -1,14 +1,14 @@
 """Spark timing (synthetic twin): ROAS by video age at first spark + organic winners to gate. The
 money finding — sparking in the 8-14 day window beats sparking at launch — shows on synthetic data.
 Reads videos.csv."""
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
 from app.config import CONTRACT
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def spark_report():
     df = pd.read_csv(CONTRACT["videos"])
     sparked = df[df["ad_spend"].fillna(0) > 0].copy()

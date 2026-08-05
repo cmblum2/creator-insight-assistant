@@ -33,6 +33,11 @@
     font-weight:650; font-size:12.5px; padding:8px 14px; border-radius:8px; cursor:pointer;
     box-shadow:0 1px 0 rgba(255,255,255,.15) inset, 0 4px 14px -6px var(--accent); }
   .report-btn:hover { filter:brightness(1.07); }
+  .shopbar { display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--border2);
+    border-radius:9px; padding:5px 10px; }
+  .shoplabel { color:var(--faint); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:600; }
+  .shopbar select { background:var(--inset); border:1px solid var(--border2); color:var(--accent); font-weight:650;
+    font-size:12.5px; padding:4px 8px; border-radius:6px; cursor:pointer; }
   .report-link { color:var(--muted); font-size:10.5px; text-decoration:none; border-bottom:1px dotted var(--faint); }
   .report-link:hover { color:var(--accent); }
   .health { display:flex; gap:14px; align-items:center; font-size:12px; color:var(--muted);
@@ -234,6 +239,10 @@
         <b>Monitoring:</b> holdout lift + drift PSI. Recommendations only — no automated spend.</div>
     </div>
     <div class="topbar-right">
+      <div class="shopbar" title="Multi-tenant demo: 3 isolated synthetic shops on one engine. Switching re-reads that shop's own creators, comments, campaigns, and economics.">
+        <span class="shoplabel">shop</span>
+        <select id="shop-switcher" onchange="switchShop(this.value)" aria-label="Switch shop (multi-tenant demo)"></select>
+      </div>
       <button class="report-btn" onclick="window.open('/report.pdf','_blank')"
         aria-label="Download the weekly agency report as a PDF"
         title="Generates a printable weekly report (~15–30s live). Opens the PDF in a new tab.">⬇ Agency report (PDF)</button>
@@ -923,11 +932,28 @@ function maybeTour(){
 }
 
 // restore persisted controls BEFORE the loaders read their values
+// ── multi-tenant shop switcher — the cookie travels with every fetch, so the server routes the
+//    whole dashboard to the chosen shop without touching any individual request.
+async function loadShops(){
+  try{
+    const d = await (await fetch("/shops")).json();
+    const sel = document.getElementById("shop-switcher");
+    if(!sel) return;
+    sel.innerHTML = (d.shops||[]).map(s =>
+      `<option value="${esc(s.slug)}"${s.slug===d.current?" selected":""}>${esc(s.name)}</option>`).join("");
+  }catch(e){}
+}
+function switchShop(slug){
+  document.cookie = "shop=" + encodeURIComponent(slug) + ";path=/;max-age=31536000";
+  try { localStorage.removeItem("ctl-product"); } catch(e){}  // products differ per shop — don't carry the filter over
+  location.reload();   // reload so KPIs + every tab re-fetch for the new shop
+}
 persistControl("product");
 persistControl("alloc-budget");
 // mobile: tap the intro memo to expand past the 3-line clamp
 document.querySelector(".sub")?.addEventListener("click", function(){ this.classList.toggle("expanded"); });
 
+loadShops();
 loadDecisions();
 loadRecs();
 loadKPIs();

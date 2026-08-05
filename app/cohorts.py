@@ -5,7 +5,7 @@ Reads data/orders.csv (creator_id, month_idx relative to first order, net_gmv). 
 question a conversion-rate can't: repeat rate, one-and-done rate, a retention curve, and net-
 contribution LTV. Same framing as the production engine; synthetic numbers here.
 """
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ import pandas as pd
 from app.config import CONTRACT, NET_MARGIN
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _by_creator():
     df = pd.read_csv(CONTRACT["orders"])
     if df.empty:

@@ -4,7 +4,7 @@ Eligible = not already seeded, not a matched control. Sorted by ordinal rank (th
 sanctioned use of the scores). The LLM (/ask) is for follow-up questions, not the ranking.
 """
 import json
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
@@ -22,7 +22,7 @@ def _s(v):
     return str(v)
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _insights():
     df = pd.read_csv(CONTRACT["creator_insights"]).fillna("")
     df["rank_position"] = pd.to_numeric(df["rank_position"], errors="coerce")

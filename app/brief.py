@@ -3,7 +3,7 @@ Each grounds a Claude call in the synthetic comments / videos / campaigns, and d
 'no key' note (the grounding data is deterministic; the LLM adds the narrative). Live on Render where
 ANTHROPIC_API_KEY is set."""
 import os
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
@@ -28,7 +28,7 @@ def _claude(prompt, max_tokens=600):
     return ""
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _comments():
     return pd.read_csv(CONTRACT["comments"])
 
@@ -47,9 +47,12 @@ def generate_brief(product, handle=None):
     objection = rel[rel["category"].isin(["price", "comparison"])]["comment_text"].drop_duplicates().head(5).tolist()
     praise = rel[rel["category"] == "praise"]["comment_text"].drop_duplicates().head(5).tolist()
     from app.voc import voc
+    from app.tenant import shop_config
     board = voc()["competitor_board"]
     comp = board[0]["competitor"] if board else None
-    prompt = (f"You are a creator-brief strategist for a hair-tool brand. Product: {product}. Winning "
+    cfg = shop_config()
+    kind = f'{cfg.get("brand", "a")} ({cfg.get("niche", "beauty")})'
+    prompt = (f"You are a creator-brief strategist for {kind}. Product: {product}. Winning "
               f"captions: {captions}. Audience buy-intent comments: {intent}. Objections: {objection}. "
               f"Praise: {praise}. Top competitor the audience names: {comp}. Write a tight creative brief "
               f"with 4 short sections — HOOK, PROOF/DEMO, PREEMPT (turn the competitor's weakness into a "

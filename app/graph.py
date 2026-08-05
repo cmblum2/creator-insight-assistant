@@ -8,11 +8,20 @@ import anthropic
 from dotenv import load_dotenv
 from app.config import CHROMA_DIR, ANSWER_MODEL
 from app.intent import buy_intent
+from app.tenant import current_shop
 
 load_dotenv()   # picks up ANTHROPIC_API_KEY from a local .env (gitignored)
-_col = chromadb.PersistentClient(path=CHROMA_DIR).get_collection("creator_corpus")
+_chroma = chromadb.PersistentClient(path=CHROMA_DIR)
+_cols = {}      # one Chroma collection per shop (corpus_<slug>), resolved lazily + cached
 _ef = DefaultEmbeddingFunction()   # same local ONNX MiniLM the index was built with
 _llm = None     # created lazily so the server (and /health) starts without a key
+
+
+def _collection():
+    shop = current_shop()
+    if shop not in _cols:
+        _cols[shop] = _chroma.get_collection(f"corpus_{shop}")
+    return _cols[shop]
 
 N_RESULTS = 8    # contexts handed to the answerer
 FETCH_K = 40     # candidate pool MMR diversifies over (must be >> N_RESULTS)
@@ -60,9 +69,13 @@ class S(TypedDict):
 
 def retrieve(s):
     from app.enrich import enrich, fact_line
+    try:
+        col = _collection()   # the current shop's collection
+    except Exception:
+        return {"contexts": []}
     # over-fetch a candidate pool WITH embeddings, then MMR-select a diverse top-N
-    r = _col.query(query_texts=[s["question"]], n_results=FETCH_K,
-                   include=["documents", "metadatas", "embeddings"])
+    r = col.query(query_texts=[s["question"]], n_results=FETCH_K,
+                  include=["documents", "metadatas", "embeddings"])
     docs, metas, embs = r["documents"][0], r["metadatas"][0], np.array(r["embeddings"][0])
     qv = np.array(_ef([s["question"]])[0])
     order = _mmr(qv, embs, N_RESULTS) if len(embs) else list(range(len(docs)))

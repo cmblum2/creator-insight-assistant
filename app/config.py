@@ -20,27 +20,37 @@ INGEST_CONFIG = {   # matches the synthetic files from scripts/gen_data.py
                  "meta_cols": ["handle", "creator_id", "video_id"]},
 }
 
-# v2 sampling-engine contract tables (synthetic; produced by scripts/gen_data.py).
-# creator_insights also feeds the RAG corpus via a custom doc builder in app/ingest.py.
-CONTRACT = {
-    "creators": "data/creators.csv",
-    "comments": "data/comments.csv",
-    "creator_insights": "data/creator_insights.csv",
-    "roster": "data/roster.csv",
-    "seeding_decisions": "data/seeding_decisions.csv",
-    "seeding_controls": "data/seeding_controls.csv",
-    # v3: synthetic sampling outcomes + order timeline (economics / holdout / drift / cohorts)
-    "outcomes": "data/outcomes.csv",
-    "orders": "data/orders.csv",
-    # v4: warehouse-feature twins (decision queue / allocator / spark / post-funnel / voc / theme-lift)
-    "campaigns": "data/campaigns.csv",
-    "videos": "data/videos.csv",
-    "sample_requests": "data/sample_requests.csv",
-    "creator_videos": "data/creator_videos.csv",
-    "product_categories": "data/product_categories.csv",
-    # v5: monthly cohort series for the weekly agency report's trend desk
-    "monthly_trends": "data/monthly_trends.csv",
+# v2–v5 sampling-engine contract tables (synthetic; produced by scripts/gen_data.py).
+# MULTI-TENANT: CONTRACT[key] resolves to the CURRENT shop's data dir (data/shops/<slug>/<key>.csv) via
+# the request-scoped contextvar in app.tenant — so every data module reads the right shop with no change
+# to its own code. creator_insights also feeds the per-shop RAG corpus (app/ingest.py).
+_CONTRACT_KEYS = {
+    "creators", "comments", "creator_insights", "roster", "seeding_decisions", "seeding_controls",
+    "outcomes", "orders", "campaigns", "videos", "sample_requests", "creator_videos",
+    "product_categories", "monthly_trends",
 }
+
+
+class _Contract:
+    """A shop-aware mapping: CONTRACT['comments'] -> 'data/shops/<current_shop>/comments.csv'."""
+
+    def __getitem__(self, key):
+        if key not in _CONTRACT_KEYS:
+            raise KeyError(key)
+        from app.tenant import shop_dir
+        return f"{shop_dir()}/{key}.csv"
+
+    def __contains__(self, key):
+        return key in _CONTRACT_KEYS
+
+    def get(self, key, default=None):
+        return self[key] if key in _CONTRACT_KEYS else default
+
+    def keys(self):
+        return set(_CONTRACT_KEYS)
+
+
+CONTRACT = _Contract()
 
 # sample-program unit economics (synthetic, but the same math the real engine uses).
 # net contribution margin = product contribution - affiliate commission; sample cost = COGS + ship.

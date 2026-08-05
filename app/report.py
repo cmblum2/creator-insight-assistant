@@ -976,13 +976,15 @@ _PDF_CACHE, _PDF_LOCK, _PDF_TTL = {}, threading.Lock(), 15 * 60
 
 
 def build_report_pdf_cached(budget=50000) -> Path:
-    hit = _PDF_CACHE.get(budget)
+    from app.tenant import current_shop
+    key = (current_shop(), budget)               # key by SHOP too, or one tenant's PDF serves another
+    hit = _PDF_CACHE.get(key)
     if hit and time.monotonic() - hit[0] < _PDF_TTL and hit[1].exists():
         return hit[1]
     with _PDF_LOCK:
-        hit = _PDF_CACHE.get(budget)              # re-check inside the lock (another thread may have built)
+        hit = _PDF_CACHE.get(key)                # re-check inside the lock (another thread may have built)
         if hit and time.monotonic() - hit[0] < _PDF_TTL and hit[1].exists():
             return hit[1]
         p = build_report_pdf(budget)
-        _PDF_CACHE[budget] = (time.monotonic(), p)
+        _PDF_CACHE[key] = (time.monotonic(), p)
         return p

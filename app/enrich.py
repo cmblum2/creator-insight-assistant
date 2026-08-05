@@ -4,7 +4,7 @@ Guardrails: ordinal-only ranks (never spend-size), never recommend matched contr
 (seeding a control contaminates lift measurement), flag already-seeded creators.
 Tables are optional — missing/empty files degrade gracefully.
 """
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
@@ -18,7 +18,7 @@ def _read(name):
         return pd.DataFrame()
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _tables():
     roster = _read("roster").fillna("")
     if len(roster):

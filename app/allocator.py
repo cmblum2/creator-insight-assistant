@@ -2,7 +2,7 @@
 Synthetic twin: reads campaigns.csv (paid) + outcomes.csv (sampling curve). Greedy: each dollar goes
 where its expected incremental profit is highest, stopping when no lever has a profitable next dollar.
 """
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
@@ -15,7 +15,7 @@ PAID_HEADROOM = 1.0
 RANK_BUCKETS = [(1, 25), (26, 75), (76, 200), (201, 500), (501, 100000)]
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def _sampling_curve():
     om = pd.read_csv(CONTRACT["outcomes"])
     col = "did_lift_refadj" if "did_lift_refadj" in om.columns else "did_lift"

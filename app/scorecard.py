@@ -1,13 +1,13 @@
 """Retrospective scorecard (synthetic twin): the sample -> sold funnel, the power-law that separates
 winners, and the mid-funnel diagnosis. Reads outcomes.csv + the post-funnel."""
-from functools import lru_cache
+from app.tenant import shop_cache
 
 import pandas as pd
 
 from app.config import CONTRACT
 
 
-@lru_cache(maxsize=1)
+@shop_cache
 def scorecard():
     om = pd.read_csv(CONTRACT["outcomes"])
     col = "did_lift_refadj" if "did_lift_refadj" in om.columns else "did_lift"

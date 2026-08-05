@@ -11,9 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 # bake synthetic data + vector index + the holdout ledger and drift baseline so the demo is fully
 # populated on first load (economics/holdout/drift all have data)
+# gen_data writes every shop under data/shops/<slug>/; ingest builds one chroma collection per shop;
+# the holdout ledger + drift baseline are initialized per shop so each tenant is demo-ready on first load.
 RUN python scripts/gen_data.py && python -m app.ingest && \
-    python -c "from app.holdout import init_forward_ledger; init_forward_ledger()" && \
-    python -c "from app.drift import drift_report; drift_report()"
+    python -c "from app import tenant; from app.holdout import init_forward_ledger; from app.drift import drift_report; [ (tenant.set_shop(s['slug']), init_forward_ledger(), drift_report()) for s in tenant.list_shops() ]"
 EXPOSE 8000
 HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 # ANTHROPIC_API_KEY is passed at RUNTIME (docker run -e ...), never baked into the image.
